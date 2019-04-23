@@ -1,9 +1,11 @@
 # create an executable
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${SAI2-EXAMPLES_BINARY_DIR}/01-non_redundant_arm)
-ADD_EXECUTABLE (01-non_redundant_arm 01-non_redundant_arm.cpp)
+ADD_EXECUTABLE (controller01 controller.cpp)
+ADD_EXECUTABLE (simviz01 simviz.cpp)
 
 # and link the library against the executable
-TARGET_LINK_LIBRARIES (01-non_redundant_arm	${SAI2-EXAMPLES_COMMON_LIBRARIES})
+TARGET_LINK_LIBRARIES (controller01	${SAI2-EXAMPLES_COMMON_LIBRARIES})
+TARGET_LINK_LIBRARIES (simviz01	${SAI2-EXAMPLES_COMMON_LIBRARIES})
 
 # export resources such as model files.
 # NOTE: this requires an install build

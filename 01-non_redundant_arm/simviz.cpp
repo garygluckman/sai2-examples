@@ -1,8 +1,3 @@
-/*
- * Example of a controller for a Kuka arm made with the motion arm primitive for redundant arms
- *
- */
-
 #include <iostream>
 #include <string>
 #include <thread>
@@ -13,8 +8,9 @@
 #include "Sai2Simulation.h"
 #include <dynamics3d.h>
 
-#include "primitives/RedundantArmMotion.h"
+#include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
+#include "tasks/PosOriTask.h"
 
 #include <GLFW/glfw3.h> //must be loaded after loading opengl/glew as part of graphicsinterface
 
@@ -23,15 +19,22 @@ bool fSimulationRunning = false;
 void sighandler(int){fSimulationRunning = false;}
 
 using namespace std;
+using namespace Eigen;
+
+// redis keys
+const string JOINT_ANGLES_KEY = "sai2::examples::sensors::q";
+const string JOINT_VELOCITIES_KEY = "sai2::examples::sensors::dq";
+const string JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::fgc";
 
 const string world_file = "resources/world.urdf";
-const string robot_file = "resources/kuka_iiwa.urdf";
-const string robot_name = "Kuka-IIWA";
+const string robot_file = "resources/puma.urdf";
+const string robot_name = "PUMA";
 
 const string camera_name = "camera";
 
+RedisClient redis_client;
+
 // simulation and control loop
-void control(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim);
 void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim);
 
 // initialize window manager
@@ -57,6 +60,10 @@ bool fRotPanTilt = false;
 
 int main (int argc, char** argv) {
 	cout << "Loading URDF world model file: " << world_file << endl;
+
+	// open redis
+	redis_client = RedisClient();
+	redis_client.connect();
 
 	// set up signal handler
 	signal(SIGABRT, &sighandler);
@@ -91,14 +98,8 @@ int main (int argc, char** argv) {
 	fSimulationRunning = true;
 	thread sim_thread(simulation, robot, sim);
 
-	// next start the control thread
-	thread ctrl_thread(control, robot, sim);
-	
     // while window is open:
     while (!glfwWindowShouldClose(window)) {
-		// update kinematic models
-		// robot->updateModel();
-
 		// update graphics. this automatically waits for the correct amount of time
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
@@ -169,7 +170,6 @@ int main (int argc, char** argv) {
 	// stop simulation
 	fSimulationRunning = false;
 	sim_thread.join();
-	ctrl_thread.join();
 
     // destroy context
     glfwDestroyWindow(window);
@@ -181,132 +181,38 @@ int main (int argc, char** argv) {
 }
 
 //------------------------------------------------------------------------------
-void control(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim) {
-	
-	robot->updateModel();
-	int dof = robot->dof();
-	Eigen::VectorXd command_torques = Eigen::VectorXd::Zero(dof);
-	Eigen::MatrixXd N_prec = Eigen::MatrixXd::Identity(dof,dof);
-
-	string link_name = "link6";
-	Eigen::Vector3d pos_in_link = Eigen::Vector3d(0.0,0.0,0.0);
-
-	// Motion arm primitive
-	Sai2Primitives::RedundantArmMotion* motion_primitive = new Sai2Primitives::RedundantArmMotion(robot, link_name, pos_in_link);
-	Eigen::VectorXd motion_primitive_torques;
-	motion_primitive->enableGravComp();
-#ifdef USING_OTG
-	motion_primitive->_posori_task->_use_interpolation_flag = false;
-	motion_primitive->_joint_task->_use_interpolation_flag = false;
-#endif
-
-	Eigen::Matrix3d initial_orientation;
-	Eigen::Vector3d initial_position;
-	robot->rotation(initial_orientation, motion_primitive->_link_name);
-	robot->position(initial_position, motion_primitive->_link_name, motion_primitive->_control_frame.translation());
-
-	// create a loop timer
-	double control_freq = 1000;
-	LoopTimer timer;
-	timer.setLoopFrequency(control_freq);   // 1 KHz
-	double last_time = timer.elapsedTime(); //secs
-	bool fTimerDidSleep = true;
-	timer.initializeTimer(1000000); // 1 ms pause before starting loop
-
-	unsigned long long controller_counter = 0;
-
-	while (fSimulationRunning) { //automatically set to false when simulation is quit
-		fTimerDidSleep = timer.waitForNextLoop();
-
-		// update time
-		double curr_time = timer.elapsedTime();
-		double loop_dt = curr_time - last_time;
-
-		// read joint positions, velocities, update model
-		sim->getJointPositions(robot_name, robot->_q);
-		sim->getJointVelocities(robot_name, robot->_dq);
-		robot->updateModel();
-
-		// update tasks model
-		N_prec = Eigen::MatrixXd::Identity(dof,dof);
-		motion_primitive->updatePrimitiveModel(N_prec);
-
-		// -------------------------------------------
-		////////////////////////////// Compute joint torques
-		double time = controller_counter/control_freq;
-
-		// orientation part
-		if(controller_counter < 3000)
-		{
-			motion_primitive->_desired_orientation = initial_orientation;
-		}
-		else if(controller_counter <= 4000)
-		{
-			Eigen::Matrix3d R;
-			double theta = M_PI/2.0/1000.0 * (controller_counter-3000);
-			R << cos(theta) , 0 , sin(theta),
-			          0     , 1 ,     0     ,
-			    -sin(theta) , 0 , cos(theta);
-
-			motion_primitive->_desired_orientation = R*initial_orientation;
-		}
-		motion_primitive->_desired_angular_velocity = Eigen::Vector3d::Zero();
-
-		// position part
-		double circle_radius = 0.05;
-		double circle_freq = 0.33;
-		motion_primitive->_desired_position = initial_position + circle_radius * Eigen::Vector3d(0.0, sin(2*M_PI*circle_freq*time), 1-cos(2*M_PI*circle_freq*time));
-		motion_primitive->_desired_velocity = 2*M_PI*circle_freq*0.001*Eigen::Vector3d(0.0, cos(2*M_PI*circle_freq*time), sin(2*M_PI*circle_freq*time));
-
-		// torques
-		motion_primitive->computeTorques(motion_primitive_torques);
-
-		//------ Final torques
-		command_torques = motion_primitive_torques;
-		// command_torques.setZero();
-
-		// -------------------------------------------
-		sim->setJointTorques(robot_name, command_torques);
-		
-
-		// -------------------------------------------
-		if(controller_counter % 500 == 0)
-		{
-			// cout << time << endl;
-			// cout << endl;
-		}
-
-		controller_counter++;
-
-		// -------------------------------------------
-		// update last time
-		last_time = curr_time;
-	}
-
-	double end_time = timer.elapsedTime();
-    std::cout << "\n";
-    std::cout << "Control Loop run time  : " << end_time << " seconds\n";
-    std::cout << "Control Loop updates   : " << timer.elapsedCycles() << "\n";
-    std::cout << "Control Loop frequency : " << timer.elapsedCycles()/end_time << "Hz\n";
-
-}
-
-//------------------------------------------------------------------------------
 void simulation(Sai2Model::Sai2Model* robot, Simulation::Sai2Simulation* sim) {
-	fSimulationRunning = true;
+
+	// prepare variables
+	int dof = robot->dof();
+	VectorXd command_torques = VectorXd::Zero(dof);
+	redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 
 	// create a timer
 	LoopTimer timer;
 	timer.initializeTimer();
-	timer.setLoopFrequency(2000); 
+	timer.setLoopFrequency(1000); 
 	double last_time = timer.elapsedTime(); //secs
 	bool fTimerDidSleep = true;
 
+	fSimulationRunning = true;
 	while (fSimulationRunning) {
 		fTimerDidSleep = timer.waitForNextLoop();
 
+		// read command torques from redis and apply to simulation
+		command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
+		sim->setJointTorques(robot_name, command_torques);
+
 		// integrate forward
-		sim->integrate(0.0005);
+		sim->integrate(0.001);
+
+		// read robot state and update redis
+		sim->getJointPositions(robot_name, robot->_q);
+		sim->getJointVelocities(robot_name, robot->_dq);
+		robot->updateKinematics();
+
+		redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
+		redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
 
 	}
 
