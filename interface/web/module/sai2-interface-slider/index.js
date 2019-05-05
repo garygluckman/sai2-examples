@@ -9,94 +9,119 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
 
 	connectedCallback() {
 		let template_node = this.template.content.cloneNode(true);
-		let container = template_node.querySelector('.container');
-
 		this.key = this.getAttribute('key');
 		this.display = this.getAttribute('display');
 		this.min = this.getAttribute('min');
 		this.max = this.getAttribute('max');
 		this.step = this.getAttribute('step');
-		
-		// set display
-		let display = template_node.querySelector('.display');
-		display.innerHTML = this.display || this.key; // default to key, if display not set
-		
-		// set number input min, max, step
-		let input_number = template_node.querySelector('input[type=number]');
-		input_number.min = this.min;
-		input_number.max = this.max;
-		input_number.step = this.step;
-		this.input_number = input_number;
-		
-		// set range input min, max, step
-		let input_range = template_node.querySelector('input[type=range]');
-		input_range.min = this.min;
-		input_range.max = this.max;
-		input_range.step = this.step;
-		this.input_range = input_range;
 
-		// set up listeners
-		// register listeners for input textbox
+		// create sliders
 		let self = this;
-		input_range.oninput = function(e) {
-			var value = self.get_input_slider_value();
-			self.update_input_number_value(value);
-			post_redis_key_val(self.key, value);
-		};
+		let container = template_node.querySelector('.container');
+		get_redis_val(this.key).done(function(value) {
+			// determine iteration bounds: 1 if scalar key, array size if vector
+			let parsed_value = JSON.parse(value);
+			let len = (Array.isArray(parsed_value)) ? parsed_value.length : 1;
 
-		// register listeners for input slider
-		input_number.oninput = function(e) {
-			var value = self.get_input_number_value();
-			self.update_input_slider_value(value);
-			post_redis_key_val(self.key, value);
-		};
+			// save value
+			self.value = parsed_value;
 
-		// register listeners for controller ready event
-		document.addEventListener(EVENT_NOT_READY, function() {
-			console.log('not ready');
-			// disable user from modifying redis value
-			$(container).addClass('disabled');
+			// generate appropriate number of sliders
+			for (let i = 0; i < len; i++) {
+				/** 
+				 * The following js should be equivalent of this:
+				 * <div>
+				 *   <div class="display_row">
+				 * 	   <p class="display"></p>
+				 * 	   <p><input type="number" class="number" onkeydown="return false"></p>
+				 *   </div>
+				 *   <input type="range" class="slider">
+				 * <div>
+				 */
+
+				let slider_div = document.createElement('div');
+				let slider_value_div = document.createElement('div');
+				let slider_display = document.createElement('label');
+				let slider_value_input = document.createElement('input');
+				let slider = document.createElement('input');
+
+				// set up slider name
+				slider_display.class = "display";
+				if (Array.isArray(parsed_value)){
+					slider_display.innerHTML = (self.display || self.key) + "[" + i + "]";
+				} else {
+					slider_display.innerHTML = self.display || self.key;
+				}
+
+				// set up slider value div/container CSS class
+				slider_value_div.className = 'display_row';
+
+				// set up manual value input for this slider
+				slider_value_input.type = 'number';
+				slider_value_input.className = 'number';
+				slider_value_input.value = Array.isArray(parsed_value) ? parsed_value[i] : parsed_value;
+				slider_value_input.min = (Array.isArray(self.min)) ? self.min[i] : self.min;
+				slider_value_input.max = (Array.isArray(self.max)) ? self.max[i] : self.max;
+				slider_value_input.step = (Array.isArray(self.step)) ? self.step[i] : self.step;
+
+				// set up typing event
+				let typingTimer;
+				let sliding_value_input_callback = () => {
+					let slider_val = parseFloat(slider_value_input.value);
+					if (slider_val < slider_value_input.min)
+						slider_val = slider_value_input.min;
+					if (slider_val > slider_value_input.max)
+						slider_val = slider_value_input.max;
+
+					slider.value = slider_val;
+
+					if (Array.isArray(self.value))
+						self.value[i] = slider_val;
+					else
+						self.value = slider_val;
+
+					post_redis_key_val(self.key, self.value);
+				}
+
+				// wait for 250ms for user to stop typing before issuing redis write
+				slider_value_input.addEventListener('keyup', () => {
+					clearTimeout(typingTimer);
+					if (slider_value_input.value)
+						typingTimer = setTimeout(sliding_value_input_callback, 250);
+				});
+
+				// set up drag slider
+				slider.type = 'range';
+				slider.className = 'slider';
+				slider.value = Array.isArray(parsed_value) ? parsed_value[i] : parsed_value;
+				slider.min = (Array.isArray(self.min)) ? self.min[i] : self.min;
+				slider.max = (Array.isArray(self.max)) ? self.max[i] : self.max;
+				slider.step = (Array.isArray(self.step)) ? self.step[i] : self.step;
+				slider.oninput = () => {
+					let slider_val = parseFloat(slider.value);
+					if (Array.isArray(self.value))
+						self.value[i] = slider_val;
+					else
+						self.value = slider_val;
+
+					slider_value_input.value = slider_val;
+
+					post_redis_key_val(self.key, self.value);
+				};
+
+				// append label + manual value input to slider_value_div
+				slider_value_div.appendChild(slider_display);
+				slider_value_div.appendChild(slider_value_input);
+				
+				// add them all together
+				slider_div.append(slider_value_div);
+				slider_div.append(slider);
+				container.append(slider_div);
+			}
 		});
-
-		document.addEventListener(EVENT_READY, function() {
-			console.log('controller ready. reading from redis.')
-			// allow user to modify redis value
-			$(container).removeClass('disabled');
-			// fetch new redis value and update UI
-			self.get_redis_val_and_update();
-		});
-
-		// fetch initial value from redis
-		this.get_redis_val_and_update();
 
 		// append to document
 		this.appendChild(template_node);
-	}
-
-	get_redis_val_and_update() {
-		let self = this;
-		get_redis_val(self.key)
-			.done(function(value) {
-				console.log('setting value from redis. key: ' + self.key, ' value: ' + value);
-				self.update_input_slider_value(value);
-				self.update_input_number_value(value);
-			});
-	}
-
-	get_input_slider_value() {
-		return parseFloat(this.input_range.value);
-	}
-
-	get_input_number_value() {
-		return parseFloat(this.input_number.value);
-	}
-
-	update_input_slider_value(value) {
-		$(this.input_range).val(value);
-	}
-
-	update_input_number_value(value) {
-		$(this.input_number).val(value);
 	}
 
 });

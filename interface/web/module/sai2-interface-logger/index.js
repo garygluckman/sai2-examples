@@ -63,11 +63,9 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 						button.innerHTML = 'stop logging';
 					});
 			} else {
-				console.log('stop logging');
-				self.stop_logging()
-					.done(function(data) {
-						button.innerHTML = 'start logging';
-					});
+				self.stop_logging().done(function(data) {
+					button.innerHTML = 'start logging';
+				});
 			}
 		};
 		
