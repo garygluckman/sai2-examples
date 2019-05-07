@@ -58,3 +58,11 @@ input[type=number] {
 .primitive_selector {
     margin-top: 1rem;
 }
+
+.button-enable {
+    background-color: #4CAF50;
+}
+
+.button-disable {
+    background-color: #f44336;
+}

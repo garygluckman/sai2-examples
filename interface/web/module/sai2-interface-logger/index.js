@@ -31,6 +31,7 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 		});
 
 		button.innerHTML = this.logging ? 'stop logging' : 'start logging';
+		button.className = this.logging ? "button-disable" : "button-enable";
 
 		// populate keys list
 		get_redis_all_keys().done(function(keys) {
@@ -61,10 +62,12 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 				self.start_logging(filename, selected_keys, logger_period)
 					.done(function(data) {
 						button.innerHTML = 'stop logging';
+						button.className = "button-disable";
 					});
 			} else {
 				self.stop_logging().done(function(data) {
 					button.innerHTML = 'start logging';
+					button.className = "button-enable"
 				});
 			}
 		};
