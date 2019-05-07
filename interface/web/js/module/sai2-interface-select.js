@@ -1,5 +1,9 @@
-(function() {
-var template = document.currentScript.ownerDocument.querySelector('#template-select');
+import {REDIS_KEY_CURRENT_PRIMITIVE, EVENT_NOT_READY, EVENT_READY } from '../const.js';
+import { get_redis_val } from '../redis.js';
+
+const template = document.createElement('template');
+template.innerHTML = `<select class="primitive_selector"></select>`;
+
 
 customElements.define('sai2-interface-select', class extends HTMLElement {
 	constructor() {
@@ -59,4 +63,3 @@ customElements.define('sai2-interface-select', class extends HTMLElement {
 		});
 	}
 });
-})();

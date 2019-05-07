@@ -1,4 +1,5 @@
-function post_redis_key_val(key, val) {
+
+export function post_redis_key_val(key, val) {
 	var data = {};
 	if (typeof val !== 'string') {
 		val = JSON.stringify(val);
@@ -13,7 +14,7 @@ function post_redis_key_val(key, val) {
 	});
 }
 
-function get_redis_val(key) {
+export function get_redis_val(key) {
 	return $.ajax({
 		method: "GET",
 		url: "/redis",
@@ -25,7 +26,7 @@ function get_redis_val(key) {
 	});
 }
 
-function get_redis_all_keys(){
+export function get_redis_all_keys(){
 	return $.ajax({
 		method: "GET",
 		url: "/redis/keys",

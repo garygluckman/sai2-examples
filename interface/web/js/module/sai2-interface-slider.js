@@ -1,5 +1,10 @@
-(function() {
-var template = document.currentScript.ownerDocument.querySelector('#template-slider');
+import { get_redis_val, post_redis_key_val } from '../redis.js';
+
+const template = document.createElement('template');
+template.innerHTML = `	
+  <div class="container">
+  </div>
+`;
 
 customElements.define('sai2-interface-slider', class extends HTMLElement {
 	constructor() {
@@ -123,6 +128,4 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
 		// append to document
 		this.appendChild(template_node);
 	}
-
 });
-})();

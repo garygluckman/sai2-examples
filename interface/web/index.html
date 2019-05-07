@@ -6,37 +6,34 @@
     <link rel="stylesheet" href="./css/library/picnic.min.css" type="text/css">
     <link rel="stylesheet" href="./css/range_input.css" type="text/css">
     <link rel="stylesheet" href="./css/index.css" type="text/css">
+
+    <!-- External library includes -->
     <script src="./js/library/jquery-3.3.1.min.js" type="text/javascript"></script>
-    <script src="./js/library/webcomponents-hi.js" type="text/javascript"></script>
-    <script src="./js/library/webcomponents-bundle.js" type="text/javascript"></script>
     <script src="./js/library/echarts.min.js" type="text/javascript"></script>
-    <script src="./js/const.js" type="text/javascript"></script>
-    <script src="./js/redis.js" type="text/javascript"></script>
-    <script src="./js/index.js" type="text/javascript"></script>
-    <!-- imported modules: need to come after webcomponent library includes -->
-    <!-- otherwise we run into race condition for sai2-interface-select -->
-    <link rel="import" href="./module/sai2-interface-logger/index.html">
-    <link rel="import" href="./module/sai2-interface-slider/index.html">
-    <link rel="import" href="./module/sai2-interface-button/index.html">
-    <link rel="import" href="./module/sai2-interface-select/index.html">
-    <link rel="import" href="./module/sai2-interface-toggle/index.html">
-    <link rel="import" href="./module/sai2-interface-plot/index.html">
+
+    <!-- sai2 elements & utility functions  -->
+    <script type="module" src="./js/const.js"></script>
+    <script type="module" src="./js/redis.js"></script>
+    <script type="module" src='./js/module/sai2-interface-logger.js'></script>
+    <script type="module" src="./js/module/sai2-interface-slider.js"></script>
+    <script type="module" src="./js/module/sai2-interface-select.js"></script>
+    <script type="module" src="./js/module/sai2-interface-toggle.js"></script>
+    <script type="module" src="./js/module/sai2-interface-plot.js"></script>
+
+    <!-- global execution scripts -->
+    <script type="module "src="./js/index.js"></script>
   </head>
   <body>
     <h1 class="title">Operational Space Control</h1>
     <img src="./images/operational_space.png" class="logo" />
     
     <div id="container">
-
-      <sai2-interface-toggle key="toggle_test" display="Toggle"></sai2-interface-toggle>
-
-
       <!-- Test Plot -->
-      <div class="module">
+      <div class="row-wrap">
         <sai2-interface-plot></sai2-interface-plot>
       </div>
       <!-- logging -->
-      <div class="module">
+      <div class="row-wrap">
         <sai2-interface-logger></sai2-interface-logger>
       </div>
       <!-- controller selector -->
@@ -45,7 +42,7 @@
       </sai2-interface-select>
 
       <!-- operations space control UI -->
-      <div id="primitive_joint_task" class="module row-wrap">
+      <div id="primitive_joint_task" class="row-wrap">
         <div class="module">
           <h2>Joint Positions</h2>
           <sai2-interface-slider 
@@ -59,6 +56,11 @@
           <sai2-interface-slider 
             key="sai2::examples::kp_joint"
             display="Kp Joint"
+            min="0" max="100" step="0.01">
+          </sai2-interface-slider>
+          <sai2-interface-slider 
+            key="sai2::examples::kv_joint"
+            display="Kv Joint"
             min="0" max="100" step="0.01">
           </sai2-interface-slider>
         </div>

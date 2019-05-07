@@ -1,5 +1,16 @@
-(function() {
-var template = document.currentScript.ownerDocument.querySelector('#template-logger');
+import { get_redis_all_keys } from '../redis.js';
+
+
+const template = document.createElement('template');
+
+template.innerHTML = `
+	<div class="display_row">
+		<input type="text" class="logfile" placeholder="log filename">
+		<input type="number" step="0.01" class="logperiod" placeholder="(period, in seconds)">
+		<select multiple class="key_list"></select>
+		<button class="error"></button>
+	</div>
+`;
 
 customElements.define('sai2-interface-logger', class extends HTMLElement {
 	constructor() {
@@ -100,4 +111,3 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 		});
 	}
 });
-})();
