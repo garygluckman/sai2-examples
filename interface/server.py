@@ -36,7 +36,9 @@ def handle_redis_call():
 
 @app.route('/redis/keys', methods=['GET'])
 def handle_get_all_redis_keys():
-    return jsonify([key for key in redis_client.scan_iter('sai2::*')])
+    all_keys = [key for key in redis_client.scan_iter('sai2::*')]
+    all_keys.sort()
+    return jsonify(all_keys)
 
 @app.route('/logger/status', methods=['GET'])
 def handle_logger_status():
