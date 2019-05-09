@@ -1,4 +1,4 @@
-import { get_redis_val } from 'redis.js';
+import { get_redis_val } from './redis.js';
 import {
   REDIS_KEY_CONTROLLER_STATE, 
   REDIS_VAL_CONTROLLER_INITIALIZING,
@@ -6,11 +6,12 @@ import {
   REDIS_VAL_CONTROLLER_READY,
   EVENT_NOT_READY,
   EVENT_READY
-} from 'const';
+} from './const.js';
 
 // poll controller ready state every 0.5 seconds
+
 setInterval(() => {
-	get_redis_val(REDIS_KEY_CONTROLLER_STATE).done((val) => {
+	get_redis_val(REDIS_KEY_CONTROLLER_STATE).then((val) => {
 		if (val === REDIS_VAL_CONTROLLER_INITIALIZING) {
 			// not ready, emit events to children to disable UI
 			let event = new Event(EVENT_NOT_READY);
@@ -24,4 +25,4 @@ setInterval(() => {
 			post_redis_key_val(REDIS_KEY_CONTROLLER_STATE, REDIS_VAL_CONTROLLER_READY);
 		}
 	});
-}, 250);
+}, 1000);

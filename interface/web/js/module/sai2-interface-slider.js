@@ -23,7 +23,7 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
 		// create sliders
 		let self = this;
 		let container = template_node.querySelector('.container');
-		get_redis_val(this.key).done(function(value) {
+		get_redis_val(this.key).then(function(value) {
 			// determine iteration bounds: 1 if scalar key, array size if vector
 			let parsed_value = JSON.parse(value);
 			let len = (Array.isArray(parsed_value)) ? parsed_value.length : 1;
@@ -78,6 +78,7 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
 					if (slider_val > slider_value_input.max)
 						slider_val = slider_value_input.max;
 
+          slider_value_input.value = slider_val;
 					slider.value = slider_val;
 
 					if (Array.isArray(self.value))

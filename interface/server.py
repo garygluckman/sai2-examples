@@ -22,11 +22,15 @@ def get_home():
 @app.route('/redis', methods=['GET','POST'])
 def handle_redis_call():
     if request.method == 'GET':
-        key = request.args.get('key')
-        return redis_client.get(key)
+        key_list = json.loads(request.args.get('key'))
+        print(key_list)
+        if type(key_list) == str:
+            return jsonify(redis_client.get(key_list))
+        else:
+            return jsonify({key: redis_client.get(key) for key in key_list})
     elif request.method == 'POST':
-        for key in request.form:
-            redis_client.set(key, request.form[key])
+        data = request.get_json()
+        redis_client.set(data['key'], json.dumps(data['val']))
         return Response(status=200)
 
 
@@ -66,12 +70,10 @@ def server():
 
 @server.command()
 @click.option("-hp", "--http_port", help="HTTP Port (default: 8000)", default=8000, type=click.INT)
-@click.option("-wp", "--ws_port", help="WebSocket port (default: 8001)", default=8001, type=click.INT)
 @click.option("-rh", "--redis_host", help="Redis hostname (default: localhost)", default="localhost", type=click.STRING)
 @click.option("-rp", "--redis_port", help="Redis port (default: 6379)", default=6379, type=click.INT)
 @click.option("-rd", "--redis_db", help="Redis database number (default: 0)", default=0, type=click.INT)
-@click.option("-r", "--refresh_rate", help="Redis refresh rate in seconds (default: 0.05)", default=0.05, type=click.FLOAT)
-def start(http_port, ws_port, redis_host, redis_port, redis_db, refresh_rate):
+def start(http_port, redis_host, redis_port, redis_db):
     global redis_client, redis_logger
     redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
     redis_logger = RedisLogger(redis_client)

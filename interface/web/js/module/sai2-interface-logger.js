@@ -15,16 +15,9 @@ template.innerHTML = `
 customElements.define('sai2-interface-logger', class extends HTMLElement {
 	constructor() {
 		super();
-		this.template = template;
-	}
-
-	getLoggerStatus() {
-		return $.ajax({
-			method: "GET",
-			url: "/logger/status",
-		}).fail(function(data){
-			alert('ajax error: ' + toString(data));
-		});
+    this.template = template;
+    
+    this.getLoggerStatus = this.getLoggerStatus.bind(this);
 	}
 
 	connectedCallback() {
@@ -36,16 +29,17 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 		let keys_select = template_node.querySelector('select');
 
 		let self = this;
-		this.getLoggerStatus().done(function(status){
+		this.getLoggerStatus().then(status => {
 			self.logging = status['running'];
-			button.innerHTML = self.logging ? 'stop logging' : 'start logging';
+      button.innerHTML = self.logging ? 'stop logging' : 'start logging';
+      button.className = this.logging ? "button-disable" : "button-enable";
 		});
 
 		button.innerHTML = this.logging ? 'stop logging' : 'start logging';
 		button.className = this.logging ? "button-disable" : "button-enable";
 
 		// populate keys list
-		get_redis_all_keys().done(function(keys) {
+		get_redis_all_keys().then(keys => {
 			for (let key of keys.values()) {
 				let opt = document.createElement('option');
 				opt.value = key;
@@ -55,7 +49,7 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 		});
 
 		// set up listeners
-		button.onclick = function(e) {
+		button.onclick = () => {
 			self.logging = !self.logging;
 			if (self.logging) {
 				// default to log.txt
@@ -70,13 +64,12 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 				// get logger period. default to 0.1s
 				let logger_period = logperiod_input.value || 0.1;
 
-				self.start_logging(filename, selected_keys, logger_period)
-					.done(function(data) {
-						button.innerHTML = 'stop logging';
-						button.className = "button-disable";
-					});
+				self.start_logging(filename, selected_keys, logger_period).then(() => {
+          button.innerHTML = 'stop logging';
+          button.className = "button-disable";
+        });
 			} else {
-				self.stop_logging().done(function(data) {
+				self.stop_logging().then(() => {
 					button.innerHTML = 'start logging';
 					button.className = "button-enable"
 				});
@@ -85,29 +78,45 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 		
 		// append to document
 		this.appendChild(template_node);
+  }
+  
+  getLoggerStatus() {
+    let fetchOptions = {
+      method: 'GET',
+      headers: new Headers({'Content-Type': 'application/json'}),
+      mode: 'same-origin'
+    };
+
+    return fetch('/logger/status', fetchOptions)
+      .then(response => response.json())
+      .catch(data => alert('logger error: ' + toString(data)));
 	}
 
 	start_logging(filename, key_list, period) {
-		return $.ajax({
-			method: "POST",
-			url: "/logger/start",
-			contentType: 'application/json; charset=utf-8',
-			data: JSON.stringify({
-				filename: filename,
-				keys: key_list,
-				logger_period: period
-			})
-		}).fail(function(data) {
-			alert('log error: ' + toString(data));
-		});
+    let fetchOptions = {
+      method: 'POST',
+      headers: new Headers({'Content-Type': 'application/json'}),
+      mode: 'same-origin',
+      body: JSON.stringify({
+        filename: filename,
+        keys: key_list,
+        logger_period: period
+      })
+    };
+  
+    return fetch('/logger/start', fetchOptions)
+      .then(response => response.ok)
+      .catch(data => alert('logger redis error: ' + toString(data)));
 	}
 
 	stop_logging() {
-		return $.ajax({
-			method: "POST",
-			url: "/logger/stop"
-		}).fail(function(data) {
-			alert('log error: ' + toString(data));
-		});
+    let fetchOptions = {
+      method: 'POST',
+      headers: new Headers({'Content-Type': 'application/json'}),
+      mode: 'same-origin'
+    };
+  
+    return fetch('/logger/stop', fetchOptions)
+      .catch(data => alert('logger redis error: ' + toString(data)));
 	}
 });

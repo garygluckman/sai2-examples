@@ -11,14 +11,17 @@
     <script src="./js/library/jquery-3.3.1.min.js" type="text/javascript"></script>
     <script src="./js/library/echarts.min.js" type="text/javascript"></script>
 
-    <!-- sai2 elements & utility functions  -->
+    <!-- sai2 utility modules - must come first!  -->
     <script type="module" src="./js/const.js"></script>
     <script type="module" src="./js/redis.js"></script>
+
+    <!-- sai2 custom UI elements -->
     <script type="module" src='./js/module/sai2-interface-logger.js'></script>
     <script type="module" src="./js/module/sai2-interface-slider.js"></script>
     <script type="module" src="./js/module/sai2-interface-select.js"></script>
     <script type="module" src="./js/module/sai2-interface-toggle.js"></script>
     <script type="module" src="./js/module/sai2-interface-plot.js"></script>
+    <script type="module" src="./js/module/sai2-interface-enum.js"></script>
 
     <!-- global execution scripts -->
     <script type="module "src="./js/index.js"></script>
@@ -32,18 +35,32 @@
       <div class="row-wrap">
         <sai2-interface-plot></sai2-interface-plot>
       </div>
+
       <!-- logging -->
       <div class="row-wrap">
         <sai2-interface-logger></sai2-interface-logger>
       </div>
+
+      <!-- Test Enum -->
+      <div class='row-wrap'>
+        <sai2-interface-enum key="enumtest" display="sai2 enum test">
+          <option value="val1">Value 1</option>
+          <option value="val2">Value 2</option>
+          <option value="val3">Value 3</option>
+          <option value="val4">Value 4</option>
+        </sai2-interface-enum>
+      </div>
+
+
       <!-- controller selector -->
       <sai2-interface-select class="primitive_selector">
         <option value="primitive_joint_task">Joint Task</option>
+        <option value="primitive_posori_task">Posori Task</option>
       </sai2-interface-select>
 
       <!-- operations space control UI -->
-      <div id="primitive_joint_task" class="row-wrap">
-        <div class="module">
+      <div id="primitive_joint_task" class="module row-wrap">
+        <div>
           <h2>Joint Positions</h2>
           <sai2-interface-slider 
             key="sai2::examples::desired_joint_position"
@@ -51,7 +68,7 @@
             min="-6.28" max="6.28" step="0.01">
           </sai2-interface-slider>
         </div>
-        <div class="module">
+        <div>
           <h2>Gains</h2>
           <sai2-interface-slider 
             key="sai2::examples::kp_joint"
@@ -64,6 +81,9 @@
             min="0" max="100" step="0.01">
           </sai2-interface-slider>
         </div>
+      </div>
+      <div id="primitive_posori_task" class="module row-wrap">
+        <label>Test</label>
       </div>
     </div>
   </body>

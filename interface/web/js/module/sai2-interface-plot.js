@@ -19,32 +19,36 @@ template.innerHTML = `
     
 customElements.define('sai2-interface-plot', class extends HTMLElement {
     constructor() {
-        super();
-        this.template = template;
-        this.plotting = false;
-        this.x = [];
-        this.y = [];
-        this.i = 1;
-        this.fetchDataCallback = this.fetchDataCallback.bind(this);
-        this.chart = null;
+      super();
+      this.template = template;
+
+      this.chart = null;
+      this.plotting = false;
+      
+      this.x_key = null;
+      this.y_key = null;
+      this.x = [];
+      this.y = [];
+
+      this.fetchDataCallback = this.fetchDataCallback.bind(this);
     }
 
     fetchDataCallback() {
-        this.x = [...this.x];
-        this.x.push(this.i);
-
-        this.y = [...this.y];
-        this.y.push(this.i);
-
-        this.i++;
+      get_redis_val([this.x_key, this.y_key]).then(data => {
+        // TODO: abort if x is not scalar valued
+        // TODO: if y is a vector, how do you plot multiple series?
+        // TODO: what if I wanted to plot against time?
+        this.x.push(data[this.x_key]);
+        this.y.push(data[this.y_key]);
 
         this.chart.setOption({
-            xAxis: {data: this.x},
-            series:[{
-                name:'y',
-                data: this.y
-            }]
+          xAxis: {data: this.x},
+          series:[{
+            name:'y',
+            data: this.y
+          }]
         });
+      });
     }
 
     connectedCallback() {
@@ -59,20 +63,19 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
         let plot_button = template_node.querySelector('.plot_button');
         let plot_div = template_node.querySelector('.plot-div');
 
-        let self = this;
-
         plot_button.innerHTML = this.plotting ? 'Stop' : 'Start';
 
         // populate keys list
-        get_redis_all_keys().done(function(keys) {
+        get_redis_all_keys().then(keys => {
             for (let key of keys.values()) {
-                let opt = document.createElement('option');
-                opt.value = key;
-                opt.innerHTML = key;
-                xkey_select.append(opt);
-                let opt2 = opt.cloneNode();
-                opt2.innerHTML = key;
-                ykey_select.append(opt2);
+              let opt = document.createElement('option');
+              opt.value = key;
+              opt.innerHTML = key;
+              xkey_select.append(opt);
+
+              let opt2 = opt.cloneNode();
+              opt2.innerHTML = key;
+              ykey_select.append(opt2);
             }
         });
 
@@ -82,44 +85,40 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
 
         this.chart.setOption({
             xAxis: {
-                type: 'value',
-                boundaryGap: false,
+              type: 'value',
+              boundaryGap: false,
             },
             yAxis: {
-                boundaryGap: [0, '50%'],
-                type: 'value'
+              boundaryGap: [0, '50%'],
+              type: 'value'
             },
-            series: [
-                {
-                    name: 'data',
-                    type: 'line',
-                    smooth: true,
-                    symbol: 'none',
-                    
-                    data: []
-                }
-            ]
+            series: [{
+              name: 'data',
+              type: 'line',
+              smooth: true,
+              symbol: 'none',
+              data: []
+            }]
         });
 
-
         // set up listeners
-        plot_button.onclick = function(e) {
-            self.plotting = !self.plotting;
-            if (self.plotting) {
-                plot_button.innerHTML = 'Stop';
+        plot_button.onclick = () => {
+          this.plotting = !this.plotting;
+          if (this.plotting) {
+            plot_button.innerHTML = 'Stop';
 
-                // determine rate. convert from sec -> ms
-                let query_rate = 1000 * parseFloat(query_rate_input.value);
+            // determine rate. convert from sec -> ms
+            let query_rate = 1000 * parseFloat(query_rate_input.value);
 
-                // set up plot timer callback
-                self.plotIntervalID = setInterval(self.fetchDataCallback, query_rate);
+            // set up plot timer callback
+            this.plotIntervalID = setInterval(this.fetchDataCallback, query_rate);
 
-            } else {
-                plot_button.innerHTML = 'Start';
+          } else {
+            plot_button.innerHTML = 'Start';
                 
-                // clear plot timer callback
-                clearInterval(self.plotIntervalID);
-            }
+            // clear plot timer callback
+            clearInterval(this.plotIntervalID);
+          }
         };
         
         // append to document
