@@ -6,9 +6,11 @@
     <link rel="stylesheet" href="./css/library/picnic.min.css" type="text/css">
     <link rel="stylesheet" href="./css/range_input.css" type="text/css">
     <link rel="stylesheet" href="./css/index.css" type="text/css">
+    <link rel="stylesheet" href="./css/chosen.min.css" type="text/css">
 
     <!-- External library includes -->
     <script src="./js/library/jquery-3.3.1.min.js" type="text/javascript"></script>
+    <script src="./js/library/chosen.jquery.min.js" type="text/javascript"></script>
     <script src="./js/library/echarts.min.js" type="text/javascript"></script>
 
     <!-- sai2 utility modules - must come first!  -->
@@ -27,66 +29,60 @@
     <script type="module "src="./js/index.js"></script>
   </head>
   <body>
-    <h1 class="title">Operational Space Control</h1>
-    <img src="./images/operational_space.png" class="logo" />
-    
-    <div id="container">
-      <!-- Test Plot -->
-      <div class="row-wrap">
-        <sai2-interface-plot></sai2-interface-plot>
-      </div>
-
-      <div class="row-wrap">
-      <sai2-interface-toggle key="test" dsiplay="toggle test"></sai2-interface-toggle>
-      </div>
-      <!-- logging -->
-      <div class="row-wrap">
-        <sai2-interface-logger></sai2-interface-logger>
-      </div>
-
-      <!-- Test Enum -->
-      <div class='row-wrap'>
-        <sai2-interface-enum key="enumtest" display="sai2 enum test">
-          <option value="a">Value 1</option>
-          <option value="b">Value 2</option>
-          <option value="c">Value 3</option>
-          <option value="d">Value 4</option>
-        </sai2-interface-enum>
-      </div>
-
-
-      <!-- controller selector -->
-      <sai2-interface-select class="primitive_selector">
-        <option value="primitive_joint_task">Joint Task</option>
-        <option value="primitive_posori_task">Posori Task</option>
-      </sai2-interface-select>
-
-      <!-- operations space control UI -->
-      <div id="primitive_joint_task" class="module row-wrap">
-        <div>
-          <h2>Joint Positions</h2>
-          <sai2-interface-slider 
-            key="sai2::examples::desired_joint_position"
-            display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6"]'
-            min="-6.28" max="6.28" step="0.01">
-          </sai2-interface-slider>
+    <div class="title">
+      <h1>Operational Space Control</h1>
+      <img src="./images/operational_space.png" />
+    </div>
+    <div class="sai2-interfaces-ui-top ">
+      <div class="left">
+  
+  
+        <!-- controller selector -->
+        <sai2-interface-select class="primitive_selector">
+          <option value="primitive_joint_task">Joint Task</option>
+          <option value="primitive_posori_task">Posori Task</option>
+        </sai2-interface-select>
+  
+        <!-- operations space control UI -->
+        <div id="primitive_joint_task" class="module row-wrap">
+          <div>
+            <h2>Joint Positions</h2>
+            <sai2-interface-slider 
+              key="sai2::examples::desired_joint_position"
+              display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6"]'
+              min="-6.28" max="6.28" step="0.01">
+            </sai2-interface-slider>
+          </div>
+          <div>
+            <h2>Gains</h2>
+            <sai2-interface-slider 
+              key="sai2::examples::kp_joint"
+              display="Kp Joint"
+              min="0" max="100" step="0.01">
+            </sai2-interface-slider>
+            <sai2-interface-slider 
+              key="sai2::examples::kv_joint"
+              display="Kv Joint"
+              min="0" max="100" step="0.01">
+            </sai2-interface-slider>
+          </div>
         </div>
-        <div>
-          <h2>Gains</h2>
-          <sai2-interface-slider 
-            key="sai2::examples::kp_joint"
-            display="Kp Joint"
-            min="0" max="100" step="0.01">
-          </sai2-interface-slider>
-          <sai2-interface-slider 
-            key="sai2::examples::kv_joint"
-            display="Kv Joint"
-            min="0" max="100" step="0.01">
-          </sai2-interface-slider>
+        <div id="primitive_posori_task" class="module row-wrap">
+          <label>Test</label>
         </div>
       </div>
-      <div id="primitive_posori_task" class="module row-wrap">
-        <label>Test</label>
+
+      <div class="right">
+        <!-- Test Plot -->
+        <div>
+          <label>Plot</label>
+          <sai2-interface-plot></sai2-interface-plot>
+        </div>
+        <!-- logging -->
+        <div>
+          <label>Logger</label>
+          <sai2-interface-logger></sai2-interface-logger>
+        </div>
       </div>
     </div>
   </body>

@@ -2,8 +2,25 @@ import { get_redis_val, get_redis_all_keys } from '../redis.js';
 
 const template = document.createElement('template');
 template.innerHTML = `
-	<div>
-    <div class='display_row'>
+  <style>
+    .sai2-interface-plot-top {
+      display: flex;
+      flex-direction: column;
+    }
+    .sai2-interface-plot-top .metadata {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    .sai2-interface-plot-top .plot-div {
+      flex: 1;
+    }
+
+  </style>
+	<div class="sai2-interface-plot-top">
+    <div class="metadata">
       <label>X:</label>
       <select class="x_key"></select>
       <label>Y:</label>
@@ -11,8 +28,9 @@ template.innerHTML = `
       <label>Rate</label>
       <input class="query_rate" type="number" step="0.1">
       <button class="plot_button"></button>
+      <label class="error-label" style="color:red;"><label>
     </div>
-    <div class="plot-div"  style="width: 600px;height:400px;"></div>
+    <div class="plot-div" style="height: 400px;"></div>
 	</div>
 `;
 
@@ -54,6 +72,7 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     let query_rate_input = template_node.querySelector('.query_rate');
     let plot_button = template_node.querySelector('.plot_button');
     let plot_div = template_node.querySelector('.plot-div');
+    let error_label = template_node.querySelector('.error-label');
 
     plot_button.innerHTML = this.plotting ? 'Stop' : 'Start';
     plot_button.className = 'button-enable';
@@ -75,7 +94,24 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     // initialize empty plot
     // TODO: temporary
     this.chart = echarts.init(plot_div);
-
+    this.chart_config = {
+      xAxis: {},
+      yAxis: {},
+      toolbox: {
+        feature: {
+          saveAsImage: {
+            title: 'Save Plot'
+          }
+        }
+      },
+      series: [{
+        symbolSize: 10,
+        type: 'scatter',
+        data: []
+      }]
+    };
+    this.chart.setOption(this.chart_config);
+    
     // register event listeners
     xkey_select.onchange = e => {
       this.x_key = e.target.value;
@@ -86,20 +122,17 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     };
 
     plot_button.onclick = () => {
+      if (!this.x_key || !this.y_key) {
+        error_label.innerHTML = 'Please select the x and y keys to plot.';
+        return;
+      }
+
+      error_label.innerHTML = '';
+
       this.plotting = !this.plotting;
       if (this.plotting) {
         xkey_select.disabled = true;
         ykey_select.disabled = true;
-
-        this.chart_config = {
-          xAxis: {},
-          yAxis: {},
-          series: [{
-            symbolSize: 10,
-            type: 'scatter',
-            data: []
-          }]
-        }
     
         this.chart.setOption(this.chart_config);
 
@@ -125,5 +158,14 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
       
     // append to document
     this.appendChild(template_node);
+
+    // HACK: echarts plot needs to manually told to resize
+    // if ResizeObserver is implemented in more browsers
+    // hook it up to plotly_div and call resize when plotly_div changes
+    setTimeout(() => this.chart.resize(), 250);
+  }
+
+  adoptedCallback() {
+    alert('test');
   }
 });

@@ -1,33 +1,71 @@
 body {
-    color: #525252;
-}
-
-.logo {
-    position: absolute;
-    top: 2rem;
-    right: 5rem;
-    height: 125px;
+  color: #525252;
 }
 
 .title {
-	margin: 4rem 0;
-	padding: 0;
-    text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.row-wrap {
-	display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
+.title h1 {
+  text-align: center;
+  display: inline-block;
+}
+
+.title img {
+  display: inline-block;
+  height: 125px;
+}
+
+.sai2-interfaces-ui-top {
+  display: flex;
+  justify-content: space-around;
+}
+
+.sai2-interfaces-ui-top .left {
+  border-style: solid;
+  border-radius: 1em;
+  width: 66%;
+  padding: 0.5%; 
+}
+
+.sai2-interfaces-ui-top .right {
+  border-style: solid;
+  border-radius: 1em;
+  width: 32%;
+  padding: 0.5%; 
 }
 
 .container {
     margin: 2rem;
 }
 
+.row-wrap {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+
+select {
+  text-overflow: ellipsis;
+}
+
+
+
+
+
+
+
+
+
+
+
+/*
 .module {
-	margin: 2rem;
+    margin: 2rem;
     max-width: 500px;
     min-width: 300px;
     flex-grow: 1;
@@ -45,15 +83,18 @@ input[type=number] {
     margin: 0 1rem;
 }
 
+.display_row button {
+  flex-shrink: 0;
+  margin-left: 1rem;
+}
+*/
+
 .disabled {
     opacity: 0.2;
     pointer-events: none;
 }
 
-.display_row button {
-    flex-shrink: 0;
-    margin-left: 1rem;
-}
+
 
 .primitive_selector {
     margin-top: 1rem;

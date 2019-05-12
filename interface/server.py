@@ -36,7 +36,6 @@ def get_home():
 def handle_redis_call():
     if request.method == 'GET':
         key_list = json.loads(request.args.get('key'))
-        print(key_list)
         if type(key_list) == str:
             return jsonify(get_redis_key(key_list))
         else:

@@ -4,11 +4,12 @@ import { get_redis_all_keys } from '../redis.js';
 const template = document.createElement('template');
 
 template.innerHTML = `
-	<div class="display_row">
+	<div>
 		<input type="text" class="logfile" placeholder="log filename">
-		<input type="number" step="0.01" class="logperiod" placeholder="(period, in seconds)">
-		<select multiple class="key_list"></select>
-		<button class="error"></button>
+		<input type="number" step="0.01" min="0" placeholder="1"
+			class="logperiod" placeholder="(period, in seconds)">
+		<select multiple class="chosen_select" data-placeholder="Select keys to log..."></select>
+		<button></button>
 	</div>
 `;
 
@@ -44,6 +45,8 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 				opt.innerHTML = key;
 				keys_select.append(opt);
 			}
+
+			$('.chosen_select').chosen();
 		});
 
 		// set up listeners
