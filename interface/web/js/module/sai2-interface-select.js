@@ -54,7 +54,6 @@ customElements.define('sai2-interface-select', class extends HTMLElement {
     // read from redis on page load
     get_redis_val_and_update() {
       get_redis_val(REDIS_KEY_CURRENT_PRIMITIVE).then(option => {
-        option = JSON.parse(option);
         this.show_module(option);
         this.selector_dom.value = option;
       });

@@ -36,7 +36,13 @@ customElements.define('sai2-interface-enum', class extends HTMLElement {
     }
 
     this.selector_dom.onchange = e => {
-      let option = e.target.value; // TODO verify
+      let raw_option = e.target.value;
+
+      // attempt to parse as number
+      let option = parseFloat(raw_option);
+      if (option == NaN)
+        option = raw_option;
+        
       post_redis_key_val(this.key, option);
     }
     
@@ -55,7 +61,6 @@ customElements.define('sai2-interface-enum', class extends HTMLElement {
 
   get_redis_val_and_update() {
     get_redis_val(this.key).then(option => {
-      option = JSON.parse(option);
       if (!(option in this.value_map)) {
         alert(option + ' not found in enum');
       } else {

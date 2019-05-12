@@ -22,7 +22,7 @@ body {
     justify-content: center;
 }
 
-#container {
+.container {
     margin: 2rem;
 }
 

@@ -1,3 +1,6 @@
+import { get_redis_val, post_redis_key_val } from '../redis.js';
+
+
 const template = document.createElement('template');
 template.innerHTML = `
   <label class="display"></label>
@@ -21,7 +24,7 @@ customElements.define('sai2-interface-toggle', class extends HTMLElement {
     
     // set display
     display_label.innerHTML = this.getAttribute('display') || this.key;
-    get_redis_val(this.key).done(value => {
+    get_redis_val(this.key).then(value => {
         this.current_value = parseInt(value);
         button.innerHTML = this.current_value ? "ON" : "OFF";
         button.className = this.current_value ? "button-enable" : "button-disable";

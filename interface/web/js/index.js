@@ -9,7 +9,6 @@ import {
 } from './const.js';
 
 // poll controller ready state every 0.5 seconds
-
 setInterval(() => {
 	get_redis_val(REDIS_KEY_CONTROLLER_STATE).then((val) => {
 		if (val === REDIS_VAL_CONTROLLER_INITIALIZING) {

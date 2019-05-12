@@ -16,7 +16,6 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 	constructor() {
 		super();
     this.template = template;
-    
     this.getLoggerStatus = this.getLoggerStatus.bind(this);
 	}
 
@@ -28,10 +27,9 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 		let logperiod_input = template_node.querySelector('.logperiod');
 		let keys_select = template_node.querySelector('select');
 
-		let self = this;
 		this.getLoggerStatus().then(status => {
-			self.logging = status['running'];
-      button.innerHTML = self.logging ? 'stop logging' : 'start logging';
+			this.logging = status['running'];
+      button.innerHTML = this.logging ? 'stop logging' : 'start logging';
       button.className = this.logging ? "button-disable" : "button-enable";
 		});
 
@@ -50,8 +48,8 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 
 		// set up listeners
 		button.onclick = () => {
-			self.logging = !self.logging;
-			if (self.logging) {
+			this.logging = !this.logging;
+			if (this.logging) {
 				// default to log.txt
 				let filename = logfile_input.value || 'log.txt';
 
@@ -64,12 +62,12 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
 				// get logger period. default to 0.1s
 				let logger_period = logperiod_input.value || 0.1;
 
-				self.start_logging(filename, selected_keys, logger_period).then(() => {
+				this.start_logging(filename, selected_keys, logger_period).then(() => {
           button.innerHTML = 'stop logging';
           button.className = "button-disable";
         });
 			} else {
-				self.stop_logging().then(() => {
+				this.stop_logging().then(() => {
 					button.innerHTML = 'start logging';
 					button.className = "button-enable"
 				});

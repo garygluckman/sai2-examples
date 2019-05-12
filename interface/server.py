@@ -12,6 +12,19 @@ app = Flask(__name__, static_folder='web', static_url_path='')
 redis_client = None
 redis_logger = None
 
+###########    UTILITY     ################
+def get_redis_key(key):
+    ''' 
+    Retrieves a key from redis and attempts JSON parsing.
+    We don't want to send a JSON object hiding in a string to the
+    frontend, who would then be forced to double unwrap.
+    '''
+    redis_str = redis_client.get(key)
+    try:
+        return json.loads(redis_str)
+    except:
+        return redis_str
+
 ########### ROUTE HANDLING ################
 
 @app.route('/')
@@ -25,9 +38,9 @@ def handle_redis_call():
         key_list = json.loads(request.args.get('key'))
         print(key_list)
         if type(key_list) == str:
-            return jsonify(redis_client.get(key_list))
+            return jsonify(get_redis_key(key_list))
         else:
-            return jsonify({key: redis_client.get(key) for key in key_list})
+            return jsonify({key: get_redis_key(key) for key in key_list})
     elif request.method == 'POST':
         data = request.get_json()
         redis_client.set(data['key'], json.dumps(data['val']))

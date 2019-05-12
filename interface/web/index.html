@@ -36,6 +36,9 @@
         <sai2-interface-plot></sai2-interface-plot>
       </div>
 
+      <div class="row-wrap">
+      <sai2-interface-toggle key="test" dsiplay="toggle test"></sai2-interface-toggle>
+      </div>
       <!-- logging -->
       <div class="row-wrap">
         <sai2-interface-logger></sai2-interface-logger>
@@ -44,10 +47,10 @@
       <!-- Test Enum -->
       <div class='row-wrap'>
         <sai2-interface-enum key="enumtest" display="sai2 enum test">
-          <option value="val1">Value 1</option>
-          <option value="val2">Value 2</option>
-          <option value="val3">Value 3</option>
-          <option value="val4">Value 4</option>
+          <option value="a">Value 1</option>
+          <option value="b">Value 2</option>
+          <option value="c">Value 3</option>
+          <option value="d">Value 4</option>
         </sai2-interface-enum>
       </div>
 
@@ -64,7 +67,7 @@
           <h2>Joint Positions</h2>
           <sai2-interface-slider 
             key="sai2::examples::desired_joint_position"
-            display="Desired Joint Position"
+            display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6"]'
             min="-6.28" max="6.28" step="0.01">
           </sai2-interface-slider>
         </div>
