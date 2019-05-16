@@ -42,7 +42,11 @@ def handle_redis_call():
             return jsonify({key: get_redis_key(key) for key in key_list})
     elif request.method == 'POST':
         data = request.get_json()
-        redis_client.set(data['key'], json.dumps(data['val']))
+        if type(data['val']) == list:
+            redis_client.set(data['key'], json.dumps(data['val']))
+        else:
+            redis_client.set(data['key'], data['val'])
+
         return Response(status=200)
 
 

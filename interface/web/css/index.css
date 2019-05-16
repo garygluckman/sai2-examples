@@ -26,14 +26,14 @@ body {
 .sai2-interfaces-ui-top .left {
   border-style: solid;
   border-radius: 1em;
-  width: 66%;
+  width: 49%;
   padding: 0.5%; 
 }
 
 .sai2-interfaces-ui-top .right {
   border-style: solid;
   border-radius: 1em;
-  width: 32%;
+  width: 49%;
   padding: 0.5%; 
 }
 
@@ -42,68 +42,29 @@ body {
 }
 
 .row-wrap {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
 }
-
 
 select {
   text-overflow: ellipsis;
 }
 
-
-
-
-
-
-
-
-
-
-
-/*
-.module {
-    margin: 2rem;
-    max-width: 500px;
-    min-width: 300px;
-    flex-grow: 1;
-}
-
-.display_row {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-}
-
-input[type=number] {
-    width: 100px;
-    margin: 0 1rem;
-}
-
-.display_row button {
-  flex-shrink: 0;
-  margin-left: 1rem;
-}
-*/
-
 .disabled {
-    opacity: 0.2;
-    pointer-events: none;
+  opacity: 0.2;
+  pointer-events: none;
 }
-
-
 
 .primitive_selector {
-    margin-top: 1rem;
+  margin-top: 1rem;
 }
 
 .button-enable {
-    background-color: #4CAF50;
+  background-color: #4CAF50;
 }
 
 .button-disable {
-    background-color: #f44336;
+  background-color: #f44336;
 }

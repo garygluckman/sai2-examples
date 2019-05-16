@@ -7,11 +7,9 @@ template.innerHTML = `
       display: flex;
       flex-direction: column;
     }
+
     .sai2-interface-plot-top .metadata {
-      display: flex;
-      flex-direction: row;
-      justify-content: space-around;
-      align-items: center;
+      flex: 1;
     }
 
     .sai2-interface-plot-top .plot-div {
@@ -21,16 +19,14 @@ template.innerHTML = `
   </style>
 	<div class="sai2-interface-plot-top">
     <div class="metadata">
-      <label>X:</label>
-      <select class="x_key"></select>
-      <label>Y:</label>
-      <select class="y_key"></select>
+      <select id="x_key" class="chosen_select" data-placeholder="Select x key..."></select>
+      <select id="y_key" class="chosen_select" data-placeholder="Select y key..."></select>
       <label>Rate</label>
       <input class="query_rate" type="number" step="0.1">
       <button class="plot_button"></button>
       <label class="error-label" style="color:red;"><label>
     </div>
-    <div class="plot-div" style="height: 400px;"></div>
+    <div class="plot-div" style="height: 600px;"></div>
 	</div>
 `;
 
@@ -46,17 +42,62 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     
     this.x_key = null;
     this.y_key = null;
+    this.plot_start_time = null;
 
     this.fetchDataCallback = this.fetchDataCallback.bind(this);
   }
 
   fetchDataCallback() {
-    get_redis_val([this.x_key, this.y_key]).then(data => {
-      // TODO: abort if x is not scalar valued
-      // TODO: if y is a vector, how do you plot multiple series?
+    let keys_to_fetch = [];
+    if (this.x_key == 'Time')
+      keys_to_fetch = [this.y_key];
+    else
+      keys_to_fetch = [this.x_key, this.y_key];
 
-      // TODO: add a new series for each element if y is a vector
-      this.chart_config.series[0].data.push([data[this.x_key], data[this.y_key]])
+    get_redis_val(keys_to_fetch).then(data => {
+      // TODO: abort if x is not scalar valued
+
+      let x_data = null;
+      if (this.x_key == 'Time') 
+        x_data = (performance.now() - this.plot_start_time) / 1000;
+      else 
+        x_data = data[this.x_key];
+
+      let y_data = data[this.y_key];
+
+      // helper function to add series for y if necessary
+      let add_data = (x_key, y_key, y_val) => {
+        if (!(y_key in this.chart_config.dataset.source)) {
+          this.chart_config.dataset.source[y_key] = [];
+          this.chart_config.series.push({
+            name: y_key,
+            type: 'line',
+            symbolSize: false,
+            encode: { x: x_key, y: y_key }
+          });
+        }
+        this.chart_config.dataset.source[y_key].push(y_val);
+      };
+
+      // check if x is setup as a series
+      if (!(this.x_key in this.chart_config.dataset.source)) {
+        this.chart_config.xAxis.name = this.x_key;
+        this.chart_config.dataset.source[this.x_key] = [];
+      }
+
+      // add x point
+      this.chart_config.dataset.source[this.x_key].push(x_data);
+      
+      // add y point
+      if (Array.isArray(y_data)) {
+        for (let i = 0; i < y_data.length; i++) {
+          let y_key = this.y_key + '[' + i + ']';
+          add_data(this.x_key, y_key, y_data[i]);
+        }
+      } else {
+        add_data(this.x_key, this.y_key, y_data);
+      }
+
       this.chart.setOption(this.chart_config);
     });
   }
@@ -67,8 +108,8 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
 
     // get DOM elements
     let template_node = this.template.content.cloneNode(true);
-    let xkey_select = template_node.querySelector('.x_key');
-    let ykey_select = template_node.querySelector('.y_key');
+    let xkey_select = template_node.querySelector('#x_key');
+    let ykey_select = template_node.querySelector('#y_key');
     let query_rate_input = template_node.querySelector('.query_rate');
     let plot_button = template_node.querySelector('.plot_button');
     let plot_div = template_node.querySelector('.plot-div');
@@ -79,6 +120,12 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
 
     // populate keys list
     get_redis_all_keys().then(keys => {
+      // add builtin time key
+      let time_opt = document.createElement('option');
+      time_opt.value = 'Time';
+      time_opt.innerHTML = 'Time';
+      xkey_select.append(time_opt);
+
       for (let key of keys.values()) {
         let opt = document.createElement('option');
         opt.value = key;
@@ -89,27 +136,33 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
         opt2.innerHTML = key;
         ykey_select.append(opt2);
       }
+
+      $('#x_key').chosen();
+      $('#y_key').chosen();
+
+      $('#x_key').trigger("chosen:updated");
+      $('#y_key').trigger("chosen:updated");
     });
 
-    // initialize empty plot
-    // TODO: temporary
+    // initialize empty plot & templates
     this.chart = echarts.init(plot_div);
     this.chart_config = {
-      xAxis: {},
-      yAxis: {},
+      dataset: { source: {} },
+      xAxis: { type:'value' },
+      yAxis: { type:'value' },
+      series: [],
+      tooltip: { trigger: 'axis' },
+      legend: {},
       toolbox: {
+        top: 'bottom',
+        left: 'right',
         feature: {
-          saveAsImage: {
-            title: 'Save Plot'
-          }
+          saveAsImage: { title: 'Save Plot'},
+          dataZoom: { title: { zoom: 'Box Zoom', back: 'Reset View' } }
         }
       },
-      series: [{
-        symbolSize: 10,
-        type: 'scatter',
-        data: []
-      }]
     };
+
     this.chart.setOption(this.chart_config);
     
     // register event listeners
@@ -122,6 +175,8 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     };
 
     plot_button.onclick = () => {
+      this.x_key = xkey_select.value;
+      this.y_key = ykey_select.value;
       if (!this.x_key || !this.y_key) {
         error_label.innerHTML = 'Please select the x and y keys to plot.';
         return;
@@ -134,6 +189,9 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
         xkey_select.disabled = true;
         ykey_select.disabled = true;
     
+        // reset chart config
+        this.chart_config.dataset.source = {};
+        this.chart_config.series = [];
         this.chart.setOption(this.chart_config);
 
         plot_button.innerHTML = 'Stop';
@@ -143,8 +201,8 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
         let query_rate = 1000 * parseFloat(query_rate_input.value);
 
         // set up plot timer callback
+        this.plot_start_time = performance.now();
         this.plotIntervalID = setInterval(this.fetchDataCallback, query_rate);
-
       } else {
         plot_button.innerHTML = 'Start';
         plot_button.className = 'button-enable';
@@ -163,9 +221,5 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     // if ResizeObserver is implemented in more browsers
     // hook it up to plotly_div and call resize when plotly_div changes
     setTimeout(() => this.chart.resize(), 250);
-  }
-
-  adoptedCallback() {
-    alert('test');
   }
 });
