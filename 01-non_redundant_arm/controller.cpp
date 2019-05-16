@@ -21,6 +21,9 @@ const string JOINT_ANGLES_KEY = "sai2::examples::sensors::q";
 const string JOINT_VELOCITIES_KEY = "sai2::examples::sensors::dq";
 const string JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::fgc";
 
+const string CURRENT_EE_POS_KEY = "sai2::examples::current_ee_pos";
+const string CURRENT_EE_VEL_KEY = "sai2::examples::current_ee_vel";
+
 // controller initialization
 const string CONTROL_STATE_KEY = "sai2::examples::control_state";
 const string CONTROL_STATE_INITIALIZING = "initializing";
@@ -100,7 +103,7 @@ void init_posori_task(
     Vector3d &initial_position) 
 {
 #ifdef USING_OTG
-    posori_task->_use_interpolation_flag = false;
+    posori_task->_use_interpolation_flag = true;
 #endif
     posori_task->_kp_pos = 100.0;
     posori_task->_kv_pos = 20.0;
@@ -110,11 +113,11 @@ void init_posori_task(
     posori_task->_ki_ori = 2.0;
 
     redis_client.set(KP_POS_KEY, std::to_string(posori_task->_kp_pos));
-    redis_client.set(KV_POS_KEY, std::to_string(posori_task->_kp_pos));
-    redis_client.set(KI_POS_KEY, std::to_string(posori_task->_kp_pos));
-    redis_client.set(KP_ORI_KEY, std::to_string(posori_task->_kp_pos));
-    redis_client.set(KV_ORI_KEY, std::to_string(posori_task->_kp_pos));
-    redis_client.set(KI_ORI_KEY, std::to_string(posori_task->_kp_pos));
+    redis_client.set(KV_POS_KEY, std::to_string(posori_task->_kv_pos));
+    redis_client.set(KI_POS_KEY, std::to_string(posori_task->_ki_pos));
+    redis_client.set(KP_ORI_KEY, std::to_string(posori_task->_kp_ori));
+    redis_client.set(KV_ORI_KEY, std::to_string(posori_task->_kv_ori));
+    redis_client.set(KI_ORI_KEY, std::to_string(posori_task->_ki_ori));
 
     robot->rotation(initial_orientation, posori_task->_link_name);
     robot->position(initial_position, posori_task->_link_name, posori_task->_control_frame.translation());
@@ -222,15 +225,11 @@ int main(int argc, char **argv)
         if (interfacePrimitive == PRIMITIVE_JOINT_TASK)
         {
             if (currentPrimitive != interfacePrimitive)
-            {
-                read_joint_parameters(joint_task, redis_client);
                 joint_task->reInitializeTask();
-            }
                 
             joint_task->updateTaskModel(N_prec);
 
             // compute torques
-            // XXX: am I doing any unnecessary read if I'm transitioning between states?
             read_joint_parameters(joint_task, redis_client);
             
             // position part
@@ -243,16 +242,12 @@ int main(int argc, char **argv)
         else if (interfacePrimitive == PRIMITIVE_POSORI_TASK)
         {
             if (currentPrimitive != interfacePrimitive)
-            {
-                read_posori_parameters(posori_task, redis_client);
                 posori_task->reInitializeTask();
-            }
                 
             posori_task->updateTaskModel(N_prec);
             N_prec = posori_task->_N;
 
             // compute torques
-            // XXX: am I doing any unnecessary read if I'm transitioning between states?
             read_posori_parameters(posori_task, redis_client);
 
             posori_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_POS_KEY);
@@ -276,6 +271,16 @@ int main(int argc, char **argv)
         // -------------------------------------------
         command_torques = command_torques + coriolis;
         redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+
+        // log current EE position and velocity to redis
+        Vector3d current_pos = Vector3d::Zero();
+        robot->position(current_pos, link_name, pos_in_link);
+
+        Vector3d current_vel = Vector3d::Zero();
+        robot->linearVelocity(current_vel, link_name, pos_in_link);
+
+        redis_client.setEigenMatrixJSON(CURRENT_EE_POS_KEY, current_pos);
+        redis_client.setEigenMatrixJSON(CURRENT_EE_VEL_KEY, current_vel);
         
         // -------------------------------------------
         if (controller_counter % 500 == 0)

@@ -23,6 +23,8 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
     let raw_disp = this.getAttribute('display');
     try {
       this.display = JSON.parse(raw_disp);
+      this.min = JSON.parse(this.min);
+      this.max = JSON.parse(this.max);
     } catch (e) {
       this.display = raw_disp;
     }
@@ -87,6 +89,8 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
           if (slider_val > slider_value_input.max)
             slider_val = slider_value_input.max;
 
+          // HTML min/max coerces back to string, unfortunately
+          slider_val = parseFloat(slider_val);
           slider_value_input.value = slider_val;
           slider.value = slider_val;
 
