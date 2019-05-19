@@ -30,114 +30,34 @@
   </head>
   <body>
     <div class="title">
-      <h1>Operational Space Control</h1>
+      <select id="example-selector">
+        <option value="./examples/01-non_redundant_arm.html">01-non_redundant_arm</option>
+      </select>
       <img src="./images/operational_space.png" />
     </div>
-    <div class="sai2-interfaces-ui-top ">
-      <div class="left">
-        <!-- controller selector -->
-        <sai2-interface-select class="primitive_selector">
-          <option value="primitive_joint_task">Joint Task</option>
-          <option value="primitive_posori_task">Posori Task</option>
-        </sai2-interface-select>
-  
-        <!-- operations space control UI -->
-        <div id="primitive_joint_task" class="module row-wrap">
-          <div>
-            <h2>Joint Positions</h2>
-            <sai2-interface-slider 
-              key="sai2::examples::desired_joint_position"
-              display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6"]'
-              min="-6.28" max="6.28" step="0.01">
-            </sai2-interface-slider>
-          </div>
-          <div>
-            <h2>Gains</h2>
-            <sai2-interface-slider 
-              key="sai2::examples::kp_joint"
-              display="Kp Joint"
-              min="0" max="400" step="0.01">
-            </sai2-interface-slider>
-            <sai2-interface-slider 
-              key="sai2::examples::kv_joint"
-              display="Kv Joint"
-              min="0" max="100" step="0.01">
-            </sai2-interface-slider>
-          </div>
-        </div>
-        <div id="primitive_posori_task" class="module row-wrap">
-          <div>
-              <h2>Desired Position</h2>
-              <sai2-interface-slider 
-                key="sai2::examples::desired_position"
-                display='["X", "Y", "Z"]'
-                min="[-0.5,-0.5,0.3]" max="[0.5,0.5,1.5]" step="0.01">
-              </sai2-interface-slider>
-              <h2></h2>
-          </div>
-          <div>
-            <h2>Desired Orientation (ZYX Euler Angles)</h2>
-            <sai2-interface-slider
-              key="sai2::examples::desired_orientation"
-              display='["Z", "Y", "X"]'
-              min="-6.28" max="6.28" step="0.01">
-            </sai2-interface-slider>
-          </div>
-          <div>
-            <h2>Gains</h2>
-            <sai2-interface-slider 
-              key="sai2::examples::kp_pos"
-              display="Kp Pos"
-              min="0" max="400" step="0.01">
-            </sai2-interface-slider>
-            <sai2-interface-slider 
-              key="sai2::examples::kv_pos"
-              display="Kv Pos"
-              min="0" max="100" step="0.01">
-            </sai2-interface-slider>
-            <sai2-interface-slider 
-              key="sai2::examples::ki_pos"
-              display="Ki Pos"
-              min="0" max="100" step="0.01">
-            </sai2-interface-slider>
-            <sai2-interface-slider 
-              key="sai2::examples::kp_ori"
-              display="Kp Ori"
-              min="0" max="100" step="0.01">
-            </sai2-interface-slider>
-            <sai2-interface-slider 
-              key="sai2::examples::kv_ori"
-              display="Kv Ori"
-              min="0" max="100" step="0.01">
-            </sai2-interface-slider>
-            <sai2-interface-slider 
-              key="sai2::examples::ki_ori"
-              display="Ki Ori"
-              min="0" max="100" step="0.01">
-            </sai2-interface-slider>
-          </div>
-          <div>
-            <sai2-interface-toggle 
-              display="Use Interpolation"
-              key="sai2::examples::posori_use_interpolation">
-            </sai2-interface-toggle>
-          </div>
-
-        </div>
-      </div>
-
-      <div class="right">
-        <!-- Test Plot -->
-        <div>
-          <label>Plot</label>
-          <sai2-interface-plot></sai2-interface-plot>
-        </div>
-        <!-- logging -->
-        <div>
-          <label>Logger</label>
-          <sai2-interface-logger></sai2-interface-logger>
-        </div>
-      </div>
+    <div id="example-container">
     </div>
   </body>
+
+  <!-- Initialize example selector -->
+  <script>
+    let example_selector = document.getElementById('example-selector');
+    let example_container = document.getElementById('example-container');
+
+    let load_example = e => {
+      // note: browsers will cache the example HTML: do not let them
+      fetch(e.target.value, { cache: 'no-store' })
+        .then(response => response.text())
+        .then(text => example_container.innerHTML = text)
+        .catch(error => console.log(error));
+    };
+
+    example_selector.onchange = load_example;
+
+    // force call load_example to load initial selected value
+    // default event handler looks in e.target.value
+    load_example({
+      target: { value: example_selector.value }
+    });
+  </script>
 </html>

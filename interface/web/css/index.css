@@ -2,6 +2,29 @@ body {
   color: #525252;
 }
 
+select {
+  text-overflow: ellipsis;
+  height: auto;
+  width: auto;
+}
+
+.disabled {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.primitive_selector {
+margin-top: 1rem;
+}
+
+.button-enable {
+background-color: #4CAF50;
+}
+
+.button-disable {
+background-color: #f44336;
+}
+
 .title {
   display: flex;
   align-items: center;
@@ -11,6 +34,13 @@ body {
 .title h1 {
   text-align: center;
   display: inline-block;
+}
+
+.title select {
+  width: 25%;
+  text-align: center;
+  text-align-last: center;
+  font-weight: bold;
 }
 
 .title img {
@@ -37,34 +67,3 @@ body {
   padding: 0.5%; 
 }
 
-.container {
-    margin: 2rem;
-}
-
-.row-wrap {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-select {
-  text-overflow: ellipsis;
-}
-
-.disabled {
-  opacity: 0.2;
-  pointer-events: none;
-}
-
-.primitive_selector {
-  margin-top: 1rem;
-}
-
-.button-enable {
-  background-color: #4CAF50;
-}
-
-.button-disable {
-  background-color: #f44336;
-}

@@ -16,6 +16,10 @@ template.innerHTML = `
       flex: 1;
     }
 
+    .sai2-interface-plot-top .chosen_select {
+      width: 100%;
+    }
+
   </style>
 	<div class="sai2-interface-plot-top">
     <div class="metadata">

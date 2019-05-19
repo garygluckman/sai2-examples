@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <div class="sai2-interfaces-ui-top">
+      <div class="left">
+        <!-- controller selector -->
+        <sai2-interface-select class="primitive_selector">
+          <option value="primitive_joint_task">Joint Task</option>
+          <option value="primitive_posori_task">Posori Task</option>
+        </sai2-interface-select>
+  
+        <!-- operations space control UI -->
+        <div id="primitive_joint_task" class="module row-wrap">
+          <div>
+            <h2>Joint Positions</h2>
+            <sai2-interface-slider 
+              key="sai2::examples::desired_joint_position"
+              display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6"]'
+              min="-6.28" max="6.28" step="0.01">
+            </sai2-interface-slider>
+          </div>
+          <div>
+            <h2>Gains</h2>
+            <sai2-interface-slider 
+              key="sai2::examples::kp_joint"
+              display="Kp Joint"
+              min="0" max="400" step="0.01">
+            </sai2-interface-slider>
+            <sai2-interface-slider 
+              key="sai2::examples::kv_joint"
+              display="Kv Joint"
+              min="0" max="100" step="0.01">
+            </sai2-interface-slider>
+          </div>
+        </div>
+        <div id="primitive_posori_task" class="module row-wrap">
+          <div>
+              <h2>Desired Position</h2>
+              <sai2-interface-slider 
+                key="sai2::examples::desired_position"
+                display='["X", "Y", "Z"]'
+                min="[-0.5,-0.5,0.3]" max="[0.5,0.5,1.5]" step="0.01">
+              </sai2-interface-slider>
+              <h2></h2>
+          </div>
+          <div>
+            <h2>Desired Orientation (XYZ Fixed Angles)</h2>
+            <sai2-interface-slider
+              key="sai2::examples::desired_orientation"
+              display='["X (γ)", "Y (β)", "Z (α)"]'
+              min="-6.28" max="6.28" step="0.01">
+            </sai2-interface-slider>
+          </div>
+          <div>
+            <h2>Gains</h2>
+            <sai2-interface-slider 
+              key="sai2::examples::kp_pos"
+              display="Kp Pos"
+              min="0" max="400" step="0.01">
+            </sai2-interface-slider>
+            <sai2-interface-slider 
+              key="sai2::examples::kv_pos"
+              display="Kv Pos"
+              min="0" max="100" step="0.01">
+            </sai2-interface-slider>
+            <sai2-interface-slider 
+              key="sai2::examples::ki_pos"
+              display="Ki Pos"
+              min="0" max="100" step="0.01">
+            </sai2-interface-slider>
+            <sai2-interface-slider 
+              key="sai2::examples::kp_ori"
+              display="Kp Ori"
+              min="0" max="100" step="0.01">
+            </sai2-interface-slider>
+            <sai2-interface-slider 
+              key="sai2::examples::kv_ori"
+              display="Kv Ori"
+              min="0" max="100" step="0.01">
+            </sai2-interface-slider>
+            <sai2-interface-slider 
+              key="sai2::examples::ki_ori"
+              display="Ki Ori"
+              min="0" max="100" step="0.01">
+            </sai2-interface-slider>
+          </div>
+          <div>
+            <sai2-interface-toggle 
+              display="Use Interpolation"
+              key="sai2::examples::posori_use_interpolation">
+            </sai2-interface-toggle>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="right">
+        <!-- Test Plot -->
+        <div>
+          <label>Plot</label>
+          <sai2-interface-plot></sai2-interface-plot>
+        </div>
+        <!-- logging -->
+        <div>
+          <label>Logger</label>
+          <sai2-interface-logger></sai2-interface-logger>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

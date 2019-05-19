@@ -255,9 +255,9 @@ int main(int argc, char **argv)
             // interface specifies euler angles, convert to rot matrix
             MatrixXd desired_euler = redis_client.getEigenMatrixJSON(DESIRED_ORI_KEY);
             Matrix3d desired_rmat;
-            desired_rmat = Eigen::AngleAxisd(desired_euler(0), Eigen::Vector3d::UnitZ())
+            desired_rmat = Eigen::AngleAxisd(desired_euler(2), Eigen::Vector3d::UnitZ())
                          * Eigen::AngleAxisd(desired_euler(1), Eigen::Vector3d::UnitY())
-                         * Eigen::AngleAxisd(desired_euler(2), Eigen::Vector3d::UnitX());
+                         * Eigen::AngleAxisd(desired_euler(0), Eigen::Vector3d::UnitX());
             posori_task->_desired_orientation = desired_rmat;
 
             // we also need to read linear & angular velocity
