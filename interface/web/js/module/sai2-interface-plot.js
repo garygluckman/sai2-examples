@@ -20,7 +20,7 @@ template.innerHTML = `
 	<div class="sai2-interface-plot-top">
     <div class="metadata">
       <select id="x_key" class="chosen_select" data-placeholder="Select x key..."></select>
-      <select id="y_key" class="chosen_select" data-placeholder="Select y key..."></select>
+      <select id="y_key" class="chosen_select" multiple data-placeholder="Select y key..."></select>
       <label>Rate</label>
       <input class="query_rate" type="number" step="0.1">
       <button class="plot_button"></button>
@@ -41,7 +41,7 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     this.plotting = false;
     
     this.x_key = null;
-    this.y_key = null;
+    this.y_key_list = [];
     this.plot_start_time = null;
 
     this.fetchDataCallback = this.fetchDataCallback.bind(this);
@@ -50,20 +50,17 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
   fetchDataCallback() {
     let keys_to_fetch = [];
     if (this.x_key == 'Time')
-      keys_to_fetch = [this.y_key];
+      keys_to_fetch = this.y_key_list;
     else
-      keys_to_fetch = [this.x_key, this.y_key];
+      keys_to_fetch = [this.x_key, ...this.y_key_list];
 
     get_redis_val(keys_to_fetch).then(data => {
-      // TODO: abort if x is not scalar valued
-
+      // assumption: x is scalar valued
       let x_data = null;
       if (this.x_key == 'Time') 
         x_data = (performance.now() - this.plot_start_time) / 1000;
       else 
         x_data = data[this.x_key];
-
-      let y_data = data[this.y_key];
 
       // helper function to add series for y if necessary
       let add_data = (x_key, y_key, y_val) => {
@@ -87,15 +84,18 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
 
       // add x point
       this.chart_config.dataset.source[this.x_key].push(x_data);
-      
-      // add y point
-      if (Array.isArray(y_data)) {
-        for (let i = 0; i < y_data.length; i++) {
-          let y_key = this.y_key + '[' + i + ']';
-          add_data(this.x_key, y_key, y_data[i]);
+
+      // add y point(s)
+      for (let y_key of this.y_key_list) {
+        let y_data = data[y_key];
+        if (Array.isArray(y_data)) {
+          for (let i = 0; i < y_data.length; i++) {
+            let y_key_element = y_key + '[' + i + ']';
+            add_data(this.x_key, y_key_element, y_data[i]);
+          }
+        } else {
+          add_data(this.x_key, y_key, y_data);
         }
-      } else {
-        add_data(this.x_key, this.y_key, y_data);
       }
 
       this.chart.setOption(this.chart_config);
@@ -170,14 +170,15 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
       this.x_key = e.target.value;
     };
 
-    ykey_select.onchange = e => {
-      this.y_key = e.target.value;
-    };
-
     plot_button.onclick = () => {
       this.x_key = xkey_select.value;
-      this.y_key = ykey_select.value;
-      if (!this.x_key || !this.y_key) {
+      this.y_key_list = [];
+
+      for (let option of ykey_select.options)
+        if (option.selected)
+          this.y_key_list.push(option.value);
+
+      if (!this.x_key || this.y_key_list.length == 0) {
         error_label.innerHTML = 'Please select the x and y keys to plot.';
         return;
       }
