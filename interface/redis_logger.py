@@ -12,6 +12,7 @@ class RedisLogger(object):
         self.filename = ''
         self.logger_period = 0
         self.redis_keys = []
+        self.log_start_time = None
 
     def _get_redis_key(self, key):
         redis_str = self.redis_client.get(key)
@@ -28,21 +29,29 @@ class RedisLogger(object):
             header = []
             header_written = False
             while self.running:
+                # ensure first data point starts time 0
+                if self.log_start_time is None:
+                    self.log_start_time = time.time()
+                    current_time = 0
+                else:
+                    current_time = time.time() - self.log_start_time
+
+                # iterate through keys, write headers, and populate data
                 values = []
                 for key in self.redis_keys:
                     redis_val = self._get_redis_key(key)
                     if type(redis_val) == list:
                         values += redis_val
-
-                        # if we haven't populated the header
-                        # expand the appropriate key into key[0] .... key[N-1]
+                        # if we haven't written the header to the file,
+                        # expand the given key into key[len(key)]
                         if not header_written:
-                            header += [key + '[{}]'.format(i) for i in range(len(redis_val))]
+                            header.append(key + '[{}]'.format(len(redis_val)))
 
                     # just append regular strings
-                    elif type(redis_val) == str:
-                        header.append(key) 
-                        values.append(redis_val) 
+                    else:
+                        values.append(redis_val)
+                        if not header_written:
+                            header.append(key) 
 
                 # write header if we haven't already
                 # we can't write header right away since we don't know if
@@ -53,18 +62,9 @@ class RedisLogger(object):
                     header_written = True
 
                 # write keys
-                f.write(str(time.time()) + '\t' + '\t'.join(str(v) for v in values) + '\n')
+                f.write(str(current_time) + '\t' + '\t'.join(str(v) for v in values) + '\n')
 
-                # wait for next
-                time.sleep(self.logger_period)
-
-            while self.running:
-
-
-
-
-                values = [str(self._get_redis_key(key)) for key in self.redis_keys]
-
+                # wait for next cycle
                 time.sleep(self.logger_period)
 
     def start(self, filename, redis_keys, logger_period=1):
@@ -90,6 +90,6 @@ class RedisLogger(object):
 if __name__ == "__main__":
     r = redis.Redis()
     rl = RedisLogger(r)
-    rl.start('test.log', ['sai2::sai2Interfaces::kv_pos', 'sai2::sai2Interfaces::kp_pos'], logger_period=1)
+    rl.start('test.log', ['sai2::examples::current_ee_pos', 'sai2::sai2Interfaces::kp_pos'], logger_period=1)
     time.sleep(5)
     rl.stop()
