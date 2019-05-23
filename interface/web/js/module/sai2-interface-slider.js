@@ -1,8 +1,37 @@
 import { get_redis_val, post_redis_key_val } from '../redis.js';
 
+
 const template = document.createElement('template');
-template.innerHTML = `	
-  <div class="container">
+template.innerHTML = `
+  <style>
+    .sai2-interface-slider-top {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .sai2-interface-slider-top div {
+      width: 100%;
+    }
+
+    .sai2-interface-slider-top div div {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    .sai2-interface-slider-top div div p {
+      flex: 1;
+    }
+
+    .sai2-interface-slider-top div div input {
+      width: 50%;
+    }
+
+  </style>
+  <div class="sai2-interface-slider-top">
   </div>
 `;
 
@@ -43,9 +72,9 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
         /** 
          * The following js should be equivalent of this:
          * <div>
-         *   <div class="display_row">
-         * 	   <p class="display"></p>
-         * 	   <p><input type="number" class="number" onkeydown="return false"></p>
+         *   <div>
+         * 	   <label>item name</label>
+         * 	   <input type="number" class="number" onkeydown="return false">
          *   </div>
          *   <input type="range" class="slider">
          * <div>
@@ -58,7 +87,6 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
         let slider = document.createElement('input');
 
         // set up slider name
-        slider_display.class = "display";
         if (Array.isArray(value)) {
           if (Array.isArray(this.display)) {
             slider_display.innerHTML = this.display[i];
@@ -69,12 +97,9 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
           slider_display.innerHTML = this.display || this.key;
         }
 
-        // set up slider value div/container CSS class
-        slider_value_div.className = 'display_row';
-
         // set up manual value input for this slider
         slider_value_input.type = 'number';
-        slider_value_input.className = 'number';
+        slider_value_input.className = 'value';
         slider_value_input.min = (Array.isArray(this.min)) ? this.min[i] : this.min;
         slider_value_input.max = (Array.isArray(this.max)) ? this.max[i] : this.max;
         slider_value_input.step = (Array.isArray(this.step)) ? this.step[i] : this.step;

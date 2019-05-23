@@ -2,7 +2,7 @@
 <html>
   <body>
     <div class="sai2-interfaces-ui-top">
-      <div class="left">
+      <div class="left center">
         <!-- controller selector -->
         <sai2-interface-select class="primitive_selector">
           <option value="primitive_joint_task">Joint Task</option>
@@ -10,8 +10,8 @@
         </sai2-interface-select>
   
         <!-- operations space control UI -->
-        <div id="primitive_joint_task" class="module row-wrap">
-          <div>
+        <div id="primitive_joint_task" class="grid-half module">
+          <div class="col center">
             <h2>Joint Positions</h2>
             <sai2-interface-slider 
               key="sai2::examples::desired_joint_position"
@@ -19,7 +19,7 @@
               min="-6.28" max="6.28" step="0.01">
             </sai2-interface-slider>
           </div>
-          <div>
+          <div class="col center">
             <h2>Gains</h2>
             <sai2-interface-slider 
               key="sai2::examples::kp_joint"
@@ -33,25 +33,22 @@
             </sai2-interface-slider>
           </div>
         </div>
-        <div id="primitive_posori_task" class="module row-wrap">
-          <div>
-              <h2>Desired Position</h2>
-              <sai2-interface-slider 
-                key="sai2::examples::desired_position"
-                display='["X", "Y", "Z"]'
-                min="[-0.5,-0.5,0.3]" max="[0.5,0.5,1.5]" step="0.01">
-              </sai2-interface-slider>
-              <h2></h2>
-          </div>
-          <div>
-            <h2>Desired Orientation (XYZ Fixed Angles)</h2>
+        <div id="primitive_posori_task" class="grid-half module">
+          <div class="col center">
+            <h2>Desired Position</h2>
+            <sai2-interface-slider 
+              key="sai2::examples::desired_position"
+              display='["X", "Y", "Z"]'
+              min="[-0.5,-0.5,0.3]" max="[0.5,0.5,1.5]" step="0.01">
+            </sai2-interface-slider>
+            <h2>Desired Orientation <br>(XYZ Fixed Angles)</h2>
             <sai2-interface-slider
               key="sai2::examples::desired_orientation"
               display='["X (γ)", "Y (β)", "Z (α)"]'
               min="-6.28" max="6.28" step="0.01">
             </sai2-interface-slider>
           </div>
-          <div>
+          <div class="col center">
             <h2>Gains</h2>
             <sai2-interface-slider 
               key="sai2::examples::kp_pos"
@@ -83,26 +80,23 @@
               display="Ki Ori"
               min="0" max="100" step="0.01">
             </sai2-interface-slider>
-          </div>
-          <div>
             <sai2-interface-toggle 
               display="Use Interpolation"
               key="sai2::examples::posori_use_interpolation">
             </sai2-interface-toggle>
           </div>
-
         </div>
       </div>
 
       <div class="right">
         <!-- Test Plot -->
-        <div>
-          <label>Plot</label>
+        <div class="plot">
+          <h2 class="center">Plot</h2>
           <sai2-interface-plot></sai2-interface-plot>
         </div>
         <!-- logging -->
-        <div>
-          <label>Logger</label>
+        <div class="logger center">
+          <h2>Logger</h2>
           <sai2-interface-logger></sai2-interface-logger>
         </div>
       </div>

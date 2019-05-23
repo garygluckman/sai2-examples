@@ -1,5 +1,11 @@
 body {
   color: #525252;
+  display: flex;
+  flex-direction: column;
+}
+
+#example-container {
+  flex: 1;
 }
 
 select {
@@ -14,15 +20,16 @@ select {
 }
 
 .primitive_selector {
-margin-top: 1rem;
+  margin-top: 1rem;
+  padding: 0em 2em;
 }
 
 .button-enable {
-background-color: #4CAF50;
+  background-color: #4CAF50;
 }
 
 .button-disable {
-background-color: #f44336;
+  background-color: #f44336;
 }
 
 .title {
@@ -65,5 +72,32 @@ background-color: #f44336;
   border-radius: 1em;
   width: 49%;
   padding: 0.5%; 
+  display: flex;
+  flex-direction: column;
 }
 
+.sai2-interfaces-ui-top .right .plot {
+  height: 75%;
+}
+
+.sai2-interfaces-ui-top .right .logger {
+  height: 25%;
+}
+
+.grid-half {
+  display: flex;
+  justify-content: space-between;
+}
+
+.grid-half .col {
+  width: 48%;
+}
+
+.center {
+  text-align: center;
+}
+
+input[type=number] {
+  width: auto;
+  -moz-appearance: textfield;
+}

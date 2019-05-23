@@ -4,11 +4,31 @@ import { get_redis_all_keys } from '../redis.js';
 const template = document.createElement('template');
 
 template.innerHTML = `
-  <div>
+  <style>
+    .sai2-interface-logger-top {
+      display: flex;
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: space-evenly;
+      flex-wrap: wrap;
+    }
+
+    .sai2-interface-logger-top > input {
+      width: 32%;
+    }
+
+    .sai2-interface-logger-top > div {
+      width: 32%;
+    }
+
+  </style>
+  <div class="sai2-interface-logger-top">
     <input type="text" class="logfile" placeholder="log filename">
     <input type="number" step="0.01" min="0" placeholder="1"
       class="logperiod" placeholder="(period, in seconds)">
-    <select multiple class="chosen_select" data-placeholder="Select keys to log..."></select>
+    <div>
+      <select multiple class="chosen_select" data-placeholder="Select keys to log..."></select>
+    </div>
     <button></button>
   </div>
 `;
@@ -46,7 +66,7 @@ customElements.define('sai2-interface-logger', class extends HTMLElement {
         keys_select.append(opt);
       }
 
-      $('.chosen_select').chosen();
+      $('.chosen_select').chosen({width: '100%'});
     });
 
     // set up listeners

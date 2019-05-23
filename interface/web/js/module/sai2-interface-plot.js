@@ -6,31 +6,30 @@ template.innerHTML = `
     .sai2-interface-plot-top {
       display: flex;
       flex-direction: column;
+      height: 100%;
     }
 
     .sai2-interface-plot-top .metadata {
-      flex: 1;
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      justify-content: space-around;
     }
 
     .sai2-interface-plot-top .plot-div {
       flex: 1;
     }
-
-    .sai2-interface-plot-top .chosen_select {
-      width: 100%;
-    }
-
   </style>
 	<div class="sai2-interface-plot-top">
     <div class="metadata">
       <select id="x_key" class="chosen_select" data-placeholder="Select x key..."></select>
       <select id="y_key" class="chosen_select" multiple data-placeholder="Select y key..."></select>
-      <label>Rate</label>
+      <h3>Rate:&nbsp;</h3>
       <input class="query_rate" type="number" step="0.1">
       <button class="plot_button"></button>
       <label class="error-label" style="color:red;"><label>
     </div>
-    <div class="plot-div" style="height: 600px;"></div>
+    <div class="plot-div"></div>
 	</div>
 `;
 
@@ -141,8 +140,8 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
         ykey_select.append(opt2);
       }
 
-      $('#x_key').chosen();
-      $('#y_key').chosen();
+      $('#x_key').chosen({ width: '100%' });
+      $('#y_key').chosen({ width: '100%' });
 
       $('#x_key').trigger("chosen:updated");
       $('#y_key').trigger("chosen:updated");
@@ -222,9 +221,15 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     // append to document
     this.appendChild(template_node);
 
-    // HACK: echarts plot needs to manually told to resize
-    // if ResizeObserver is implemented in more browsers
-    // hook it up to plotly_div and call resize when plotly_div changes
+    // set up size listeners
+    window.onresize = () => {
+      this.chart.resize();
+    }
+
+    // prime the pump: echarts plot needs to be
+    // manually told to resize, but echarts needs an initial size
+    // after we attach it to the DOM. so we wait a bit
+    // and then resize
     setTimeout(() => this.chart.resize(), 250);
   }
 });
