@@ -30,7 +30,7 @@ const string CONTROL_STATE_INITIALIZING = "initializing";
 const string CONTROL_STATE_INITIALIZED = "initialized";
 const string CONTROL_STATE_READY = "ready";
 
-// operational space control
+// posori task parameters
 const string DESIRED_POS_KEY = "sai2::examples::desired_position";
 const string DESIRED_ORI_KEY = "sai2::examples::desired_orientation";
 const string KP_POS_KEY = "sai2::examples::kp_pos";
@@ -41,7 +41,7 @@ const string KV_ORI_KEY = "sai2::examples::kv_ori";
 const string KI_ORI_KEY = "sai2::examples::ki_ori";
 const string POSORI_USE_INTERPOLATION = "sai2::examples::posori_use_interpolation";
 
-// joint space control
+// joint task parameters
 const string DESIRED_JOINT_POS_KEY = "sai2::examples::desired_joint_position";
 const string KP_JOINT_KEY = "sai2::examples::kp_joint";
 const string KV_JOINT_KEY = "sai2::examples::kv_joint";
@@ -218,10 +218,11 @@ int main(int argc, char **argv)
         robot->updateModel();
         robot->coriolisForce(coriolis);
 
-        // read the current state
         MatrixXd N_prec = MatrixXd::Identity(dof, dof);
-        
+
+        // read the current state
         string interfacePrimitive = redis_client.get(PRIMITIVE_KEY);
+
         if (interfacePrimitive == PRIMITIVE_JOINT_TASK)
         {
             if (currentPrimitive != interfacePrimitive)
@@ -229,15 +230,9 @@ int main(int argc, char **argv)
                 
             joint_task->updateTaskModel(N_prec);
 
-            // compute torques
             read_joint_parameters(joint_task, redis_client);
-            
-            // position part
             joint_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_JOINT_POS_KEY);
-
-            // compute torques
             joint_task->computeTorques(command_torques);
-
         }
         else if (interfacePrimitive == PRIMITIVE_POSORI_TASK)
         {
@@ -247,17 +242,15 @@ int main(int argc, char **argv)
             posori_task->updateTaskModel(N_prec);
             N_prec = posori_task->_N;
 
-            // compute torques
             read_posori_parameters(posori_task, redis_client);
-
             posori_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_POS_KEY);
             
-            // interface specifies euler angles, convert to rot matrix
-            MatrixXd desired_euler = redis_client.getEigenMatrixJSON(DESIRED_ORI_KEY);
+            // interface specifies fixed angles, convert to rot matrix
+            MatrixXd desired_fixed = redis_client.getEigenMatrixJSON(DESIRED_ORI_KEY);
             Matrix3d desired_rmat;
-            desired_rmat = Eigen::AngleAxisd(desired_euler(2), Eigen::Vector3d::UnitZ())
-                         * Eigen::AngleAxisd(desired_euler(1), Eigen::Vector3d::UnitY())
-                         * Eigen::AngleAxisd(desired_euler(0), Eigen::Vector3d::UnitX());
+            desired_rmat = Eigen::AngleAxisd(desired_fixed(2), Eigen::Vector3d::UnitZ())
+                         * Eigen::AngleAxisd(desired_fixed(1), Eigen::Vector3d::UnitY())
+                         * Eigen::AngleAxisd(desired_fixed(0), Eigen::Vector3d::UnitX());
             posori_task->_desired_orientation = desired_rmat;
 
             // we also need to read linear & angular velocity
@@ -314,9 +307,9 @@ int main(int argc, char **argv)
     redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 
     double end_time = timer.elapsedTime();
-    std::cout << "\n";
-    std::cout << "Control Loop run time  : " << end_time << " seconds\n";
-    std::cout << "Control Loop updates   : " << timer.elapsedCycles() << "\n";
-    std::cout << "Control Loop frequency : " << timer.elapsedCycles()/end_time << "Hz\n";
+    std::cout << std::endl;
+    std::cout << "Control Loop run time  : " << end_time << " seconds" << std::endl;
+    std::cout << "Control Loop updates   : " << timer.elapsedCycles() << std::endl;
+    std::cout << "Control Loop frequency : " << timer.elapsedCycles()/end_time << "Hz" << std::endl;
     return 0;
 }
