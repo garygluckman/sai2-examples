@@ -112,6 +112,9 @@ void init_posori_task(
     posori_task->_kv_ori = 20.0;
     posori_task->_ki_ori = 2.0;
 
+#ifdef USING_OTG
+    redis_client.set(POSORI_USE_INTERPOLATION, std::to_string(static_cast<int>(posori_task->_use_interpolation_flag)));
+#endif
     redis_client.set(KP_POS_KEY, std::to_string(posori_task->_kp_pos));
     redis_client.set(KV_POS_KEY, std::to_string(posori_task->_kv_pos));
     redis_client.set(KI_POS_KEY, std::to_string(posori_task->_ki_pos));
