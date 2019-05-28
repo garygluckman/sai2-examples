@@ -165,6 +165,9 @@ int main(int argc, char **argv)
     signal(SIGTERM, &sighandler);
     signal(SIGINT, &sighandler);
 
+    // initialize controller state
+    redis_client.set(PRIMITIVE_KEY, currentPrimitive);
+
     // notify UI that we are initializing
     redis_client.set(CONTROL_STATE_KEY, CONTROL_STATE_INITIALIZING);
 
