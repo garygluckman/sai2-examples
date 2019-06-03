@@ -110,10 +110,10 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
       formatter: params => {
         if (params.seriesIndex === 0)
           return `Point ${this.points.idx[params.dataIndex]}
-            <br>X: ${params.data[0].toFixed(2)}
-            <br>Y: ${params.data[1].toFixed(2)}`;
+            <br>X: ${this.points.x[params.dataIndex]}
+            <br>Y: ${this.points.y[params.dataIndex]}`;
         else
-          return `Time ${this.trajectory.t[params.dataIndex]}
+          return `Time ${this.trajectory.t[params.dataIndex].toFixed(4)}
             <br>X: ${this.trajectory.x[params.dataIndex].toFixed(2)}
             <br>Y: ${this.trajectory.y[params.dataIndex].toFixed(2)}
             <br>V: ${this.trajectory.v[params.dataIndex].toFixed(2)}`;
@@ -125,10 +125,10 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
       formatter: params => {
         if (params.seriesIndex === 0)
           return `Point ${this.points.idx[params.dataIndex]}
-            <br>X: ${params.data[0].toFixed(2)} 
-            <br>Z: ${params.data[1].toFixed(2)}`;
+            <br>X: ${this.points.x[params.dataIndex].toFixed(2)} 
+            <br>Z: ${this.points.z[params.dataIndex].toFixed(2)}`;
         else
-          return `Time ${this.trajectory.t[params.dataIndex]}
+          return `Time ${this.trajectory.t[params.dataIndex].toFixed(4)}
             <br>X: ${this.trajectory.x[params.dataIndex].toFixed(2)}
             <br>Z: ${this.trajectory.z[params.dataIndex].toFixed(2)}
             <br>V: ${this.trajectory.v[params.dataIndex].toFixed(2)}`;
@@ -335,6 +335,76 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
           this.xy_plot.setOption(this.xy_config);
           this.xz_plot.setOption(this.xz_config);
         });
+    };
+
+    let _trajectory_running = false;
+    runTrajectoryButton.className = 'button-enable';
+    runTrajectoryButton.onclick = () => {
+      // NOTE: we have the server recompute trajectory
+      let tf = parseFloat(trajectoryMaxTimeInput.value);
+      let t_step = parseFloat(trajectoryStepSizeInput.value);
+
+      // XXX: handle more gracefully with an error message
+      if (t_step > tf || !t_step || !tf) {
+        alert('Bad t_step');
+        return;
+      }
+
+      // collect points
+      let points = [this.points.x, this.points.y, this.points.z];
+      let fetchOptions = {
+        method: 'POST',
+        headers: new Headers({'Content-Type': 'application/json'}),
+        mode: 'same-origin',
+        body: JSON.stringify({
+          tf, t_step, points, // things needed for trajectory gen
+          primitive_key: 'sai2::examples::primitive',
+          primitive_value: 'primitive_posori_task',
+          position_key: 'sai2::examples::desired_position',
+          velocity_key: 'sai2::examples::desired_velocity'
+        })
+      };
+
+      let running_callback = () => {
+        // poll repeatedly to get status
+        let id = setInterval(() => {
+          let poll_fetch_options = {
+            method: 'GET',
+            headers: new Headers({'Content-Type': 'application/json'}),
+            mode: 'same-origin'
+          };
+
+          fetch('/trajectory/run/status', poll_fetch_options)
+            .then(response => response.json())
+            .then(data => {
+              if (!data.running) {
+                clearTimeout(id);
+                _trajectory_running = false;
+                runTrajectoryButton.className = 'button-enable';
+              }
+            });
+        }, tf / 10);
+      };
+
+      // update state & UI
+      _trajectory_running = !_trajectory_running;
+
+      if (_trajectory_running) {
+        runTrajectoryButton.className = 'button-disable';
+        fetch('/trajectory/run', fetchOptions)
+          .then(() => running_callback())
+          .catch(error => {
+            console.log(error);
+            alert('Running trajectory failed!')
+          }
+        );
+      } else {
+        fetch('/trajectory/run/stop', fetchOptions)
+          .then(response => {
+            if (response.ok)
+              _trajectory_running = false;
+          });
+      }
     };
 
     clearTrajectoryButton.onclick = () => {

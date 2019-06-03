@@ -89,7 +89,7 @@ def compute_catmullrom_spline_trajectory(tf, P, t_step, alpha=0.5):
     # determine trajectory
     t_traj = np.arange(0, tf, t_step)
     P_traj = np.zeros((m, len(t_traj)))
-    V_traj = np.zeros((len(t_traj),))
+    V_traj = np.zeros((m, len(t_traj)))
 
     current_segment = 0
     for i in range(len(t_traj)):
@@ -106,7 +106,7 @@ def compute_catmullrom_spline_trajectory(tf, P, t_step, alpha=0.5):
 
         # at^3 + bt^2 + ct + d
         P_traj[:, i] =  a * (t_i_traj ** 3) + b * (t_i_traj ** 2) + (c * t_i_traj) + d
-        V_traj[i] = np.linalg.norm((3 * a * (t_i_traj ** 2)) + (2 * b * t_i_traj) + c)
+        V_traj[:, i] = (3 * a * (t_i_traj ** 2)) + (2 * b * t_i_traj) + c
 
     return (t_traj, P_traj, V_traj)
     

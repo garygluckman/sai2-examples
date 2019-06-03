@@ -33,6 +33,7 @@ const string CONTROL_STATE_READY = "ready";
 // posori task parameters
 const string DESIRED_POS_KEY = "sai2::examples::desired_position";
 const string DESIRED_ORI_KEY = "sai2::examples::desired_orientation";
+const string DESIRED_VEL_KEY = "sai2::examples::desired_velocity";
 const string KP_POS_KEY = "sai2::examples::kp_pos";
 const string KV_POS_KEY = "sai2::examples::kv_pos";
 const string KI_POS_KEY = "sai2::examples::ki_pos";
@@ -100,7 +101,8 @@ void init_posori_task(
     Sai2Model::Sai2Model *robot,
     RedisClient& redis_client,
     Matrix3d &initial_orientation,
-    Vector3d &initial_position) 
+    Vector3d &initial_position,
+    Vector3d &initial_velocity) 
 {
 #ifdef USING_OTG
     posori_task->_use_interpolation_flag = true;
@@ -124,8 +126,10 @@ void init_posori_task(
 
     robot->rotation(initial_orientation, posori_task->_link_name);
     robot->position(initial_position, posori_task->_link_name, posori_task->_control_frame.translation());
+    robot->linearVelocity(initial_velocity, posori_task->_link_name, posori_task->_control_frame.translation());
     redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, initial_position); 
     redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, Vector3d::Zero());
+    redis_client.setEigenMatrixJSON(DESIRED_VEL_KEY, Vector3d::Zero());
 }
 
 void read_joint_parameters(
@@ -190,8 +194,9 @@ int main(int argc, char **argv)
     // initialize tasks
     Matrix3d initial_orientation;
     Vector3d initial_position;
+    Vector3d initial_velocity;
     Sai2Primitives::PosOriTask *posori_task = new Sai2Primitives::PosOriTask(robot, link_name, pos_in_link);
-    init_posori_task(posori_task, robot, redis_client, initial_orientation, initial_position);
+    init_posori_task(posori_task, robot, redis_client, initial_orientation, initial_position, initial_velocity);
 
     Sai2Primitives::JointTask *joint_task = new Sai2Primitives::JointTask(robot);
     init_joint_task(joint_task, robot, redis_client);
@@ -250,6 +255,7 @@ int main(int argc, char **argv)
 
             read_posori_parameters(posori_task, redis_client);
             posori_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_POS_KEY);
+            posori_task->_desired_velocity = redis_client.getEigenMatrixJSON(DESIRED_VEL_KEY);
             
             // interface specifies fixed angles, convert to rot matrix
             MatrixXd desired_fixed = redis_client.getEigenMatrixJSON(DESIRED_ORI_KEY);

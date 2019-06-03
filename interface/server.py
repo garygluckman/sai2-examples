@@ -1,18 +1,22 @@
 from flask import Flask, jsonify, request, Response
 from redis_logger import RedisLogger
+from trajectory_runner import TrajectoryRunner
 import json 
 import click
 import redis
 import catmullrom
 import numpy as np
 
+
 # bypass Flask templating engine by serving our HTML as static pages
 app = Flask(__name__, static_folder='web', static_url_path='')
 
 
 #### global variables, initialized in server start ####
+example_to_serve = ''
 redis_client = None
 redis_logger = None
+trajectory_runner = None
 
 ###########    UTILITY     ################
 def get_redis_key(key):
@@ -31,6 +35,7 @@ def get_redis_key(key):
 
 @app.route('/')
 def get_home():
+    # TODO: use example_to_server + '.html' + appropriate directory
     return app.send_static_file('index.html')
 
 
@@ -92,12 +97,47 @@ def handle_trajectory_generate():
     return jsonify({
         'time': t_traj.tolist(),
         'pos': P_traj.tolist(),
-        'vel': V_traj.tolist()
+        'vel': np.linalg.norm(V_traj,axis=0).tolist()
     })
 
 @app.route('/trajectory/run', methods=['POST'])
 def handle_trajectory_run():
-    pass
+    global trajectory_runner
+
+    # parse request
+    data = request.get_json()
+    primitive_key = data['primitive_key']
+    primitive_value = data['primitive_value']
+    position_key = data['position_key']
+    velocity_key = data['velocity_key']
+    tf = data['tf']
+    t_step = data['t_step']
+    P = np.array(data['points'])
+
+    # compute and run trajectory
+    (t_traj, P_traj, V_traj) = catmullrom.compute_catmullrom_spline_trajectory(tf, P, t_step)
+    trajectory_runner = TrajectoryRunner(
+        redis_client, 
+        primitive_key, 
+        primitive_value, 
+        position_key, 
+        velocity_key
+    )
+
+    if trajectory_runner.start(t_traj, P_traj, V_traj, t_step):
+        return Response(status=200)
+    else:
+        return Response(status=500)
+    
+
+@app.route('/trajectory/run/status', methods=['GET'])
+def handle_trajectory_run_status():
+    return jsonify({'running': (trajectory_runner and trajectory_runner.running)})
+
+@app.route('/trajectory/run/stop', methods=['POST'])
+def handle_trajectory_run_stop():
+    trajectory_runner.stop()
+    return Response(status=200)
 
 
 ############ CLI + Server Init ##############
@@ -110,6 +150,7 @@ def server():
 @click.option("-rh", "--redis_host", help="Redis hostname (default: localhost)", default="localhost", type=click.STRING)
 @click.option("-rp", "--redis_port", help="Redis port (default: 6379)", default=6379, type=click.INT)
 @click.option("-rd", "--redis_db", help="Redis database number (default: 0)", default=0, type=click.INT)
+# TODO: @click.argument("template_to_load_as_index")
 def start(http_port, redis_host, redis_port, redis_db):
     global redis_client, redis_logger
     redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
