@@ -1,9 +1,8 @@
 import numpy as np
 
 
-def compute_catmullrom_spline_trajectory(duration, P, tf, num_points, alpha=0.5):
+def compute_catmullrom_spline_trajectory(tf, P, t_step, alpha=0.5):
     '''
-        duration: float
         P: np.array in the form of [P0, P1, ... ]. m x n, m = dim, n = # points
         alpha: float. 0.5 = centripetal
     '''
@@ -88,12 +87,12 @@ def compute_catmullrom_spline_trajectory(duration, P, tf, num_points, alpha=0.5)
         coeff[:, :, i] = np.reshape(x, (m, 4), order='F')
     
     # determine trajectory
-    t_traj = np.linspace(0, tf, num_points)
-    P_traj = np.zeros((m, num_points))
-    V_traj = np.zeros((m, num_points))
+    t_traj = np.arange(0, tf, t_step)
+    P_traj = np.zeros((m, len(t_traj)))
+    V_traj = np.zeros((len(t_traj),))
 
     current_segment = 0
-    for i in range(num_points):
+    for i in range(len(t_traj)):
         t_i_traj = t_traj[i]
 
         # t contains start of segments
@@ -107,7 +106,7 @@ def compute_catmullrom_spline_trajectory(duration, P, tf, num_points, alpha=0.5)
 
         # at^3 + bt^2 + ct + d
         P_traj[:, i] =  a * (t_i_traj ** 3) + b * (t_i_traj ** 2) + (c * t_i_traj) + d
-        V_traj[:, i] = (3 * a * (t_i_traj ** 2)) + (2 * b * t_i_traj) + c
+        V_traj[i] = np.linalg.norm((3 * a * (t_i_traj ** 2)) + (2 * b * t_i_traj) + c)
 
     return (t_traj, P_traj, V_traj)
     

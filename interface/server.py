@@ -4,6 +4,7 @@ import json
 import click
 import redis
 import catmullrom
+import numpy as np
 
 # bypass Flask templating engine by serving our HTML as static pages
 app = Flask(__name__, static_folder='web', static_url_path='')
@@ -83,11 +84,21 @@ def handle_toggle_redis_key():
 
 @app.route('/trajectory/generate', methods=['POST'])
 def handle_trajectory_generate():
-    pass
+    data = request.get_json()
+    tf = data['tf']
+    t_step = data['t_step']
+    P = np.array(data['points'])
+    (t_traj, P_traj, V_traj) = catmullrom.compute_catmullrom_spline_trajectory(tf, P, t_step)
+    return jsonify({
+        'time': t_traj.tolist(),
+        'pos': P_traj.tolist(),
+        'vel': V_traj.tolist()
+    })
 
 @app.route('/trajectory/run', methods=['POST'])
 def handle_trajectory_run():
     pass
+
 
 ############ CLI + Server Init ##############
 @click.group()

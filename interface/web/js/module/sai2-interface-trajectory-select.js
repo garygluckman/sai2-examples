@@ -24,8 +24,13 @@ template.innerHTML = `
   </style>
 	<div class="sai2-interface-trajectory-select-top">
     <div class="metadata">
+      <label>Trajectory Duration</label>
+      <input id="traj-max-time" type="number" min="0.1" step="0.1">
+      <label>Trajectory Step Size</label>
+      <input id="traj-step-time" type="number" min="0.01" step="0.01">
       <button class="trajectory-add-pt-btn">Add Point</button>
       <button class="trajectory-get-btn">Get Trajectory</button>
+      <button class="trajectory-clear-btn">Clear Trajectory</button>
       <button class="trajectory-run-btn">Run Trajectory</button>
       <select id="point-remover" class="chosen_select" multiple data-placeholder="Add a point..."></select>
     </div>
@@ -48,6 +53,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
     this.xz_config = null;
 
     this.points = { x: [], y: [], z: [], idx: [] };
+    this.trajectory = { x: [], y: [], z: [], t:[], v: [] };
     this.next_point_index = 0;
   }
 
@@ -59,20 +65,21 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
 
     let addPointButton = template_node.querySelector('.trajectory-add-pt-btn');
     let getTrajectoryButton = template_node.querySelector('.trajectory-get-btn');
+    let clearTrajectoryButton = template_node.querySelector('.trajectory-clear-btn');
     let runTrajectoryButton = template_node.querySelector('.trajectory-run-btn');
     let pointSelect = template_node.querySelector('#point-remover');
+    let trajectoryMaxTimeInput = template_node.querySelector('#traj-max-time');
+    let trajectoryStepSizeInput = template_node.querySelector('#traj-step-time');
 
     // parse 
     let xLim = JSON.parse(this.getAttribute('xLim'));
     let yLim = JSON.parse(this.getAttribute('yLim'));
     let zLim = JSON.parse(this.getAttribute('zLim'));
 
-
     // initialize template
     this.default_config = {
       grid: {},
       xAxis: { type:'value', name: 'x', min: xLim[0], max: xLim[1] }, 
-      series: [],
       legend: { type: 'scroll' },
       toolbox: {
         top: 'bottom',
@@ -82,9 +89,10 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
           dataZoom: { title: { zoom: 'Box Zoom', back: 'Reset View' } }
         }
       },
-      dataset: { 
-        source: this.points,
-      }
+      dataset: [
+        { source: this.points },
+        { source: this.trajectory }
+      ]
     };
 
     // initialize select
@@ -100,32 +108,66 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
     this.xy_config.tooltip = { 
       triggerOn: 'none',
       formatter: params => {
-        return `Point ${this.points.idx[params.dataIndex]}<br>X: ${params.data[0].toFixed(2)}<br>Y: ${params.data[1].toFixed(2)}`;
+        if (params.seriesIndex === 0)
+          return `Point ${this.points.idx[params.dataIndex]}
+            <br>X: ${params.data[0].toFixed(2)}
+            <br>Y: ${params.data[1].toFixed(2)}`;
+        else
+          return `Time ${this.trajectory.t[params.dataIndex]}
+            <br>X: ${this.trajectory.x[params.dataIndex].toFixed(2)}
+            <br>Y: ${this.trajectory.y[params.dataIndex].toFixed(2)}
+            <br>V: ${this.trajectory.v[params.dataIndex].toFixed(2)}`;
       }
     };
 
     this.xz_config.tooltip = { 
       triggerOn: 'none',
       formatter: params => {
-        return `Point ${this.points.idx[params.dataIndex]}<br>X: ${params.data[0].toFixed(2)}<br>Z: ${params.data[1].toFixed(2)}`;
+        if (params.seriesIndex === 0)
+          return `Point ${this.points.idx[params.dataIndex]}
+            <br>X: ${params.data[0].toFixed(2)} 
+            <br>Z: ${params.data[1].toFixed(2)}`;
+        else
+          return `Time ${this.trajectory.t[params.dataIndex]}
+            <br>X: ${this.trajectory.x[params.dataIndex].toFixed(2)}
+            <br>Z: ${this.trajectory.z[params.dataIndex].toFixed(2)}
+            <br>V: ${this.trajectory.v[params.dataIndex].toFixed(2)}`;
       }
     };
-
+    
     this.xy_config.series = [{
-      id: 'xy',
-      type: 'line',
-      lineStyle: {type: 'dashed'},
-      encode: { x: 'x', y: 'y' },
-      symbolSize: 24
-    }];
+        id: 'xy',
+        type: 'line',
+        datasetIndex: 0,
+        lineStyle: { type: 'dashed' },
+        encode: { x: 'x', y: 'y' },
+        symbolSize: 24
+      }, {
+        id: 'xy-traj',
+        type: 'line',
+        datasetIndex: 1,
+        encode: { x: 'x', y: 'y'},
+        symbolSize: false,
+        lineStyle: { color: 'blue' }
+      }
+    ];
 
     this.xz_config.series = [{
-      id: 'xz',
-      type: 'line',
-      lineStyle: {type: 'dashed'},
-      encode: { x: 'x', y: 'z' },
-      symbolSize: 24,
-    }];
+        id: 'xz',
+        type: 'line',
+        datasetIndex: 0,
+        lineStyle: {type: 'dashed'},
+        encode: { x: 'x', y: 'z' },
+        symbolSize: 24,
+      }, {
+        id: 'xz-traj',
+        type: 'line',
+        datasetIndex: 1,
+        encode: { x: 'x', y: 'z'},
+        symbolSize: false,
+        lineStyle: { color: 'blue' }
+      }
+    ];
 
     this.xy_config.yAxis = { type:'value', name: 'y', min: yLim[0], max: yLim[1] };
     this.xz_config.yAxis = { type:'value', name: 'z', min: zLim[0], max: zLim[1] };
@@ -139,6 +181,8 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
     let init_drag = (xy_plot, xy_config, xz_plot, xz_config, points) => {
       xy_config.graphic = [];
       xz_config.graphic = [];
+
+      // generate control point graphics
       for (let i = 0; i < points.x.length; i++) {
         let graphic_template = {
           type: 'circle',
@@ -191,7 +235,44 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
 
         xy_config.graphic.push(xy_graphic);
         xz_config.graphic.push(xz_graphic);
-      } 
+      }  
+
+      // generate trajectory graphics
+      for (let i = 0; i < this.trajectory.x.length; i++) {
+        let graphic_template = {
+          type: 'circle',
+          shape: { cx: 0, cy: 0, r: 10 },
+          z: 25,
+          invisible: true,
+          onmouseover: () => {
+            let showTipAction = {
+              type: 'showTip',
+              seriesIndex: 1, // the control points will always be at index 0
+              dataIndex: i
+            };
+            xy_plot.dispatchAction(showTipAction);
+            xz_plot.dispatchAction(showTipAction);
+          },
+          onmouseout: () => {
+            let hideTipeAction = { type: 'hideTip' };
+            xy_plot.dispatchAction(hideTipeAction);
+            xz_plot.dispatchAction(hideTipeAction);
+          }
+        };
+
+        let xy_graphic = {
+          ...graphic_template,
+          position: xy_plot.convertToPixel('grid', [this.trajectory.x[i], this.trajectory.y[i]]),
+        };
+
+        let xz_graphic = {
+          ...graphic_template,
+          position: xz_plot.convertToPixel('grid', [points.x[i], points.z[i]]),
+        };
+
+        xy_config.graphic.push(xy_graphic);
+        xz_config.graphic.push(xz_graphic);
+      }  
     };
 
     // set up event listeners
@@ -223,11 +304,61 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
       this.next_point_index++;
     };
 
+    getTrajectoryButton.onclick = () => {
+      let tf = parseFloat(trajectoryMaxTimeInput.value);
+      let t_step = parseFloat(trajectoryStepSizeInput.value);
+
+      // XXX: handle more gracefully with an error message
+      if (t_step > tf || !t_step || !tf) {
+        alert('Bad t_step');
+        return;
+      }
+
+      // collect points
+      let points = [this.points.x, this.points.y, this.points.z];
+      let fetchOptions = {
+        method: 'POST',
+        headers: new Headers({'Content-Type': 'application/json'}),
+        mode: 'same-origin',
+        body: JSON.stringify({tf, t_step, points})
+      };
+
+      fetch('/trajectory/generate', fetchOptions)
+        .then(response => response.json())
+        .then(data => {
+          this.trajectory.x = data.pos[0];
+          this.trajectory.y = data.pos[1];
+          this.trajectory.z = data.pos[2];
+          this.trajectory.t = data.time;
+          this.trajectory.v = data.vel;
+          init_drag(this.xy_plot, this.xy_config, this.xz_plot, this.xz_config, this.points);
+          this.xy_plot.setOption(this.xy_config);
+          this.xz_plot.setOption(this.xz_config);
+        });
+    };
+
+    clearTrajectoryButton.onclick = () => {
+      this.trajectory.x.length = 0;
+      this.trajectory.y.length = 0;
+      this.trajectory.z.length = 0;
+      this.trajectory.t.length = 0;
+      this.trajectory.v.length = 0;
+      let _dataset = {
+        dataset: [
+          { source: this.points },
+          { source: this.trajectory }
+        ]
+      };
+
+      this.xy_plot.setOption(_dataset);
+      this.xz_plot.setOption(_dataset);
+    }
+
     // XXX: Known bug: remove the middle element
     pointSelect.onchange = e => {
       let options = []
       for (let option of e.target.selectedOptions) {
-        options.push(parseInt(option.value))
+        options.push(parseInt(option.value));
       }
 
       for (let i = this.points.idx.length - 1; i >= 0; i--) {
