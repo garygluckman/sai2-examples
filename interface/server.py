@@ -3,6 +3,7 @@ from redis_logger import RedisLogger
 import json 
 import click
 import redis
+import catmullrom
 
 # bypass Flask templating engine by serving our HTML as static pages
 app = Flask(__name__, static_folder='web', static_url_path='')
@@ -80,6 +81,13 @@ def handle_logger_stop():
 def handle_toggle_redis_key():
     return redis_client.keys()
 
+@app.route('/trajectory/generate', methods=['POST'])
+def handle_trajectory_generate():
+    pass
+
+@app.route('/trajectory/run', methods=['POST'])
+def handle_trajectory_run():
+    pass
 
 ############ CLI + Server Init ##############
 @click.group()

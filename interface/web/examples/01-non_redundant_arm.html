@@ -7,6 +7,7 @@
         <sai2-interface-select class="primitive_selector">
           <option value="primitive_joint_task">Joint Task</option>
           <option value="primitive_posori_task">Posori Task</option>
+          <option value="user_trajectory_task">Custom Trajectory</option>
         </sai2-interface-select>
   
         <!-- operations space control UI -->
@@ -86,13 +87,20 @@
             </sai2-interface-toggle>
           </div>
         </div>
+        <div id="user_trajectory_task" class="grid-half module">
+          <div style="width:100%;">
+           <sai2-interface-trajectory-select xLim="[-0.5,0.5]" yLim="[-0.5,0.5]" zLim="[0.3,1.5]">
+           </sai2-interface-trajectory-select>
+          </div>  
+        </div>
       </div>
 
       <div class="right">
         <!-- Test Plot -->
         <div class="plot">
           <h2 class="center">Plot</h2>
-          <sai2-interface-plot></sai2-interface-plot>
+          <sai2-interface-plot>
+          </sai2-interface-plot>
         </div>
         <!-- logging -->
         <div class="logger center">

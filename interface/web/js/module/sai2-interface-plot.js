@@ -1,4 +1,5 @@
 import { get_redis_val, get_redis_all_keys } from '../redis.js';
+import { registerWindowResizeCallback } from '../resize.js';
 
 const template = document.createElement('template');
 template.innerHTML = `
@@ -155,7 +156,7 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
       yAxis: { type:'value' },
       series: [],
       tooltip: { trigger: 'axis' },
-      legend: {},
+      legend: { type: 'scroll' },
       toolbox: {
         top: 'bottom',
         left: 'right',
@@ -222,9 +223,9 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
     this.appendChild(template_node);
 
     // set up size listeners
-    window.onresize = () => {
+    registerWindowResizeCallback(() => {
       this.chart.resize();
-    }
+    });
 
     // prime the pump: echarts plot needs to be
     // manually told to resize, but echarts needs an initial size

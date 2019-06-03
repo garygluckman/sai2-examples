@@ -7,7 +7,7 @@ import {
   EVENT_NOT_READY,
   EVENT_READY
 } from './const.js';
-
+/*
 // poll controller ready state every 0.5 seconds
 setInterval(() => {
 	get_redis_val(REDIS_KEY_CONTROLLER_STATE).then((val) => {
@@ -24,4 +24,4 @@ setInterval(() => {
 			post_redis_key_val(REDIS_KEY_CONTROLLER_STATE, REDIS_VAL_CONTROLLER_READY);
 		}
 	});
-}, 1000);
+}, 1000);*/
