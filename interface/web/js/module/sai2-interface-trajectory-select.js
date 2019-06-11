@@ -380,6 +380,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
               if (!data.running) {
                 clearTimeout(id);
                 _trajectory_running = false;
+                runTrajectoryButton.innerHTML = 'Start Trajectory';
                 runTrajectoryButton.className = 'button-enable';
               }
             });
@@ -391,6 +392,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
 
       if (_trajectory_running) {
         runTrajectoryButton.className = 'button-disable';
+        runTrajectoryButton.innerHTML = 'Stop Trajectory';
         fetch('/trajectory/run', fetchOptions)
           .then(() => running_callback())
           .catch(error => {

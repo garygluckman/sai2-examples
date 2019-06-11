@@ -131,7 +131,7 @@ customElements.define('sai2-interface-slider', class extends HTMLElement {
         slider_value_input.addEventListener('keyup', () => {
           clearTimeout(typingTimer);
           if (slider_value_input.value)
-            typingTimer = setTimeout(sliding_value_input_callback, 250);
+            typingTimer = setTimeout(sliding_value_input_callback, 500);
         });
 
         // set up drag slider
