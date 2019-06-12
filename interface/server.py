@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, Response
+from flask import Flask, jsonify, request, Response, send_file, send_from_directory
 from redis_logger import RedisLogger
 from trajectory_runner import TrajectoryRunner
 import json 
@@ -9,11 +9,12 @@ import numpy as np
 
 
 # bypass Flask templating engine by serving our HTML as static pages
+example_to_serve = None
 app = Flask(__name__, static_folder='web', static_url_path='')
 
 
 #### global variables, initialized in server start ####
-example_to_serve = ''
+example_to_serve = None
 redis_client = None
 redis_logger = None
 trajectory_runner = None
@@ -35,8 +36,8 @@ def get_redis_key(key):
 
 @app.route('/')
 def get_home():
-    # TODO: use example_to_server + '.html' + appropriate directory
-    return app.send_static_file('index.html')
+    global example_to_serve
+    return send_file(example_to_serve)
 
 
 @app.route('/redis', methods=['GET','POST'])
@@ -150,9 +151,10 @@ def server():
 @click.option("-rh", "--redis_host", help="Redis hostname (default: localhost)", default="localhost", type=click.STRING)
 @click.option("-rp", "--redis_port", help="Redis port (default: 6379)", default=6379, type=click.INT)
 @click.option("-rd", "--redis_db", help="Redis database number (default: 0)", default=0, type=click.INT)
-# TODO: @click.argument("template_to_load_as_index")
-def start(http_port, redis_host, redis_port, redis_db):
-    global redis_client, redis_logger
+@click.argument('example', type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True))
+def start(http_port, redis_host, redis_port, redis_db, example):
+    global redis_client, redis_logger, example_to_serve
+    example_to_serve = example
     redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db, decode_responses=True)
     redis_logger = RedisLogger(redis_client)
     app.run(port=http_port, debug=True)

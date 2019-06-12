@@ -54,6 +54,7 @@ const string ROBOT_FILE = "resources/puma.urdf";
 const string PRIMITIVE_KEY = "sai2::examples::primitive";
 const string PRIMITIVE_JOINT_TASK = "primitive_joint_task";
 const string PRIMITIVE_POSORI_TASK = "primitive_posori_task";
+const string PRIMITIVE_TRAJECTORY_TASK = "primitive_trajectory_task";
 
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
@@ -245,7 +246,7 @@ int main(int argc, char **argv)
             joint_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_JOINT_POS_KEY);
             joint_task->computeTorques(command_torques);
         }
-        else if (interfacePrimitive == PRIMITIVE_POSORI_TASK)
+        else if (interfacePrimitive == PRIMITIVE_POSORI_TASK || interfacePrimitive == PRIMITIVE_TRAJECTORY_TASK)
         {
             if (currentPrimitive != interfacePrimitive)
                 posori_task->reInitializeTask();
@@ -257,6 +258,11 @@ int main(int argc, char **argv)
             posori_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_POS_KEY);
             posori_task->_desired_velocity = redis_client.getEigenMatrixJSON(DESIRED_VEL_KEY);
             
+#ifdef USING_OTG
+            // disable OTG for trajectory task 
+            if (interfacePrimitive == PRIMITIVE_TRAJECTORY_TASK)
+                redis_client.set(POSORI_USE_INTERPOLATION, "0");
+#endif
             // interface specifies fixed angles, convert to rot matrix
             MatrixXd desired_fixed = redis_client.getEigenMatrixJSON(DESIRED_ORI_KEY);
             Matrix3d desired_rmat;
@@ -290,6 +296,7 @@ int main(int argc, char **argv)
         // -------------------------------------------
         if (controller_counter % 500 == 0)
         {
+            cout << "current primitive: " << currentPrimitive << endl;
             if (currentPrimitive == PRIMITIVE_JOINT_TASK)
             {
                 cout << time << endl;
@@ -298,7 +305,7 @@ int main(int argc, char **argv)
                 cout << "position error : " << (joint_task->_desired_position - joint_task->_current_position).norm() << endl;
                 cout << endl;
             }
-            else if (currentPrimitive == PRIMITIVE_POSORI_TASK)
+            else if (currentPrimitive == PRIMITIVE_POSORI_TASK || currentPrimitive == PRIMITIVE_TRAJECTORY_TASK)
             {
                 cout << time << endl;
                 cout << "desired position : " << posori_task->_desired_position.transpose() << endl;

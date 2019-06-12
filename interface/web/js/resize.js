@@ -3,7 +3,14 @@ var resize_callbacks = [];
 var handle_id = 1;
 var init = false;
 
-
+/**
+ * Adds a callback to the list of callbacks who need to be called
+ * when the window resizes.
+ * 
+ * @param {function(void):void} callback Function to be called when window resizes
+ * @return {int} A handle which identifies your callback. 
+ *  You need this handle if you need to unregister your callback.
+ */
 export function registerWindowResizeCallback(callback) {
   if (!init) {
     window.onresize = () => {
@@ -20,6 +27,10 @@ export function registerWindowResizeCallback(callback) {
   return ret_handle_id;
 }
 
+/**
+ * Removes a resize window callback.
+ * @param {int} callback_handle The handle (int) given by registerWindowResizeCallback
+ */
 export function removeWindowResizeCallback(callback_handle) {
   if (!init) 
     return false;

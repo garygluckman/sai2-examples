@@ -1,4 +1,3 @@
-import { get_redis_val, get_redis_all_keys } from '../redis.js';
 import { registerWindowResizeCallback } from '../resize.js';
 
 const template = document.createElement('template');
@@ -25,14 +24,14 @@ template.innerHTML = `
 	<div class="sai2-interface-trajectory-select-top">
     <div class="metadata">
       <label>Trajectory Duration</label>
-      <input id="traj-max-time" type="number" min="0.1" step="0.1">
+      <input class="traj-max-time" type="number" min="0.1" step="0.1">
       <label>Trajectory Step Size</label>
-      <input id="traj-step-time" type="number" min="0.01" step="0.01">
+      <input class="traj-step-time" type="number" min="0.01" step="0.01">
       <button class="trajectory-add-pt-btn">Add Point</button>
       <button class="trajectory-get-btn">Get Trajectory</button>
       <button class="trajectory-clear-btn">Clear Trajectory</button>
       <button class="trajectory-run-btn">Run Trajectory</button>
-      <select id="point-remover" class="chosen_select" multiple data-placeholder="Add a point..."></select>
+      <select class="point-remover chosen_select" multiple data-placeholder="Add a point..."></select>
     </div>
     <div class="grid-half">
       <div class="col traj-xy"></div>
@@ -60,6 +59,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
   connectedCallback() {
     // get DOM elements
     let template_node = this.template.content.cloneNode(true);
+    let top_level_div = template_node.querySelector('.sai2-interface-trajectory-select-top');
     let xy_div = template_node.querySelector('.traj-xy');
     let xz_div = template_node.querySelector('.traj-xz');
 
@@ -67,14 +67,19 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
     let getTrajectoryButton = template_node.querySelector('.trajectory-get-btn');
     let clearTrajectoryButton = template_node.querySelector('.trajectory-clear-btn');
     let runTrajectoryButton = template_node.querySelector('.trajectory-run-btn');
-    let pointSelect = template_node.querySelector('#point-remover');
-    let trajectoryMaxTimeInput = template_node.querySelector('#traj-max-time');
-    let trajectoryStepSizeInput = template_node.querySelector('#traj-step-time');
+    let pointSelect = template_node.querySelector('.point-remover');
+    let trajectoryMaxTimeInput = template_node.querySelector('.traj-max-time');
+    let trajectoryStepSizeInput = template_node.querySelector('.traj-step-time');
 
-    // parse 
+    // grab passed-in attributes
     let xLim = JSON.parse(this.getAttribute('xLim'));
     let yLim = JSON.parse(this.getAttribute('yLim'));
     let zLim = JSON.parse(this.getAttribute('zLim'));
+
+    let primitive_key = "sai2::examples::primitive";
+    let primitive_value = "primitive_trajectory_task";
+    let position_key = "sai2::examples::desired_position";
+    let velocity_key = "sai2::examples::desired_velocity";
 
     // initialize template
     this.default_config = {
@@ -96,7 +101,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
     };
 
     // initialize select
-    $('#point-remover').chosen({ width: '100%' });
+    $('.point-remover').chosen({ width: '100%' });
 
     // initialize empty plot & templates
     this.xy_plot = echarts.init(xy_div);
@@ -175,17 +180,16 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
     this.xy_plot.setOption(this.xy_config);
     this.xz_plot.setOption(this.xz_config);
 
-    // XXX: This routine is highly inefficient. Because we have two dependent plots,
-    // if we move a point, we need to make sure we update the counterpart in the other graph
-    // currently, this is naively done by forcing a reinitialization on ALL points on a single drag
-    let init_drag = (xy_plot, xy_config, xz_plot, xz_config, points) => {
-      xy_config.graphic = [];
-      xz_config.graphic = [];
+    let initialize_graphics = () => {
+      this.xy_config.graphic = [];
+      this.xz_config.graphic = [];
 
       // generate control point graphics
-      for (let i = 0; i < points.x.length; i++) {
+      for (let i = 0; i < this.points.x.length; i++) {
         let graphic_template = {
+          id: i,
           type: 'circle',
+          $action: 'replace',
           shape: { cx: 0, cy: 0, r: 10 },
           z: 100,
           invisible: true,
@@ -196,51 +200,52 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
               seriesIndex: 0, // the control points will always be at index 0
               dataIndex: i
             };
-            xy_plot.dispatchAction(showTipAction);
-            xz_plot.dispatchAction(showTipAction);
+            this.xy_plot.dispatchAction(showTipAction);
+            this.xz_plot.dispatchAction(showTipAction);
           },
           onmouseout: () => {
-            let hideTipeAction = { type: 'hideTip' };
-            xy_plot.dispatchAction(hideTipeAction);
-            xz_plot.dispatchAction(hideTipeAction);
+            let hideTipAction = { type: 'hideTip' };
+            this.xy_plot.dispatchAction(hideTipAction);
+            this.xz_plot.dispatchAction(hideTipAction);
           }
         };
 
         let xy_graphic = {
           ...graphic_template,
-          position: xy_plot.convertToPixel('grid', [points.x[i], points.y[i]]),
-
-          ondrag: echarts.util.curry(function(i, xy_plot, xy_config, xz_plot, xz_config, points, params) {
-            let pt = xy_plot.convertFromPixel('grid', this.position);
-            points.x[i] = pt[0];
-            points.y[i] = pt[1];
-            init_drag(xy_plot, xy_config, xz_plot, xz_config, points);
-            xy_plot.setOption(xy_config);
-            xz_plot.setOption(xz_config);
-          }, i, xy_plot, xy_config, xz_plot, xz_config, points)
+          position: this.xy_plot.convertToPixel('grid', [this.points.x[i], this.points.y[i]]),
+          ondrag: params => {
+            console.log(params);
+            let pt = this.xy_plot.convertFromPixel('grid', params.target.position);
+            this.points.x[i] = pt[0];
+            this.points.y[i] = pt[1];
+            initialize_graphics();
+            this.xy_plot.setOption(this.xy_config);
+            this.xz_plot.setOption(this.xz_config);
+          }
         };
 
         let xz_graphic = {
           ...graphic_template,
-          position: xz_plot.convertToPixel('grid', [points.x[i], points.z[i]]),
-          ondrag: echarts.util.curry(function(i, xy_plot, xy_config, xz_plot, xz_config, points, params) {
-            let pt = xz_plot.convertFromPixel('grid', this.position);
-            points.x[i] = pt[0];
-            points.z[i] = pt[1];
-            init_drag(xy_plot, xy_config, xz_plot, xz_config, points);
-            xy_plot.setOption(xy_config);
-            xz_plot.setOption(xz_config);
-          }, i, xy_plot, xy_config, xz_plot, xz_config, points)
+          position: this.xz_plot.convertToPixel('grid', [this.points.x[i], this.points.z[i]]),
+          ondrag: params => {
+            let pt = this.xz_plot.convertFromPixel('grid', params.target.position);
+            this.points.x[i] = pt[0];
+            this.points.z[i] = pt[1];
+            initialize_graphics();
+            this.xy_plot.setOption(this.xy_config);
+            this.xz_plot.setOption(this.xz_config);
+          }
         };
 
-        xy_config.graphic.push(xy_graphic);
-        xz_config.graphic.push(xz_graphic);
+        this.xy_config.graphic.push(xy_graphic);
+        this.xz_config.graphic.push(xz_graphic);
       }  
 
       // generate trajectory graphics
       for (let i = 0; i < this.trajectory.x.length; i++) {
         let graphic_template = {
           type: 'circle',
+          $action: 'replace',
           shape: { cx: 0, cy: 0, r: 10 },
           z: 25,
           invisible: true,
@@ -250,28 +255,28 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
               seriesIndex: 1, // the control points will always be at index 0
               dataIndex: i
             };
-            xy_plot.dispatchAction(showTipAction);
-            xz_plot.dispatchAction(showTipAction);
+            this.xy_plot.dispatchAction(showTipAction);
+            this.xz_plot.dispatchAction(showTipAction);
           },
           onmouseout: () => {
-            let hideTipeAction = { type: 'hideTip' };
-            xy_plot.dispatchAction(hideTipeAction);
-            xz_plot.dispatchAction(hideTipeAction);
+            let hideTipAction = { type: 'hideTip' };
+            this.xy_plot.dispatchAction(hideTipAction);
+            this.xz_plot.dispatchAction(hideTipAction);
           }
         };
 
         let xy_graphic = {
           ...graphic_template,
-          position: xy_plot.convertToPixel('grid', [this.trajectory.x[i], this.trajectory.y[i]]),
+          position: this.xy_plot.convertToPixel('grid', [this.trajectory.x[i], this.trajectory.y[i]]),
         };
 
         let xz_graphic = {
           ...graphic_template,
-          position: xz_plot.convertToPixel('grid', [points.x[i], points.z[i]]),
+          position: this.xz_plot.convertToPixel('grid', [this.trajectory.x[i], this.trajectory.z[i]]),
         };
 
-        xy_config.graphic.push(xy_graphic);
-        xz_config.graphic.push(xz_graphic);
+        this.xy_config.graphic.push(xy_graphic);
+        this.xz_config.graphic.push(xz_graphic);
       }  
     };
 
@@ -279,7 +284,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
     registerWindowResizeCallback(() => {
       this.xy_plot.resize();
       this.xz_plot.resize();
-      init_drag(this.xy_plot, this.xy_config, this.xz_plot, this.xz_config, this.points);
+      initialize_graphics();
       this.xy_plot.setOption(this.xy_config);
       this.xz_plot.setOption(this.xz_config);
     });
@@ -290,7 +295,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
       this.points.z.push((zLim[0] + zLim[1]) / 2);
       this.points.idx.push(this.next_point_index);
 
-      init_drag(this.xy_plot, this.xy_config, this.xz_plot, this.xz_config, this.points);
+      initialize_graphics();
       this.xy_plot.setOption(this.xy_config);
       this.xz_plot.setOption(this.xz_config);
 
@@ -299,7 +304,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
       opt.innerHTML = 'Point ' + opt.value;
       opt.selected = true;
       pointSelect.append(opt);
-      $('#point-remover').trigger("chosen:updated");
+      $('.point-remover').trigger("chosen:updated");
 
       this.next_point_index++;
     };
@@ -331,7 +336,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
           this.trajectory.z = data.pos[2];
           this.trajectory.t = data.time;
           this.trajectory.v = data.vel;
-          init_drag(this.xy_plot, this.xy_config, this.xz_plot, this.xz_config, this.points);
+          initialize_graphics();
           this.xy_plot.setOption(this.xy_config);
           this.xz_plot.setOption(this.xz_config);
         });
@@ -358,10 +363,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
         mode: 'same-origin',
         body: JSON.stringify({
           tf, t_step, points, // things needed for trajectory gen
-          primitive_key: 'sai2::examples::primitive',
-          primitive_value: 'primitive_posori_task',
-          position_key: 'sai2::examples::desired_position',
-          velocity_key: 'sai2::examples::desired_velocity'
+          primitive_key, primitive_value, position_key, velocity_key
         })
       };
 
@@ -397,7 +399,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
           .then(() => running_callback())
           .catch(error => {
             console.log(error);
-            alert('Running trajectory failed!')
+            alert('Running trajectory failed!');
           }
         );
       } else {
@@ -426,9 +428,8 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
       this.xz_plot.setOption(_dataset);
     }
 
-    // XXX: Known bug: remove the middle element
     pointSelect.onchange = e => {
-      let options = []
+      let options = [];
       for (let option of e.target.selectedOptions) {
         options.push(parseInt(option.value));
       }
@@ -443,7 +444,7 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
         this.points.idx.splice(i, 1);
       }
 
-      init_drag(this.xy_plot, this.xy_config, this.xz_plot, this.xz_config, this.points);
+      initialize_graphics();
       this.xy_plot.setOption(this.xy_config);
       this.xz_plot.setOption(this.xz_config);
     };
@@ -455,11 +456,6 @@ customElements.define('sai2-interface-trajectory-select', class extends HTMLElem
     setTimeout(() => {
       this.xy_plot.resize();
       this.xz_plot.resize();
-
-      init_drag(this.xy_plot, this.xy_config, this.xz_plot, this.xz_config, this.points);
-      this.xy_plot.setOption(this.xy_config);
-      this.xz_plot.setOption(this.xz_config);
-
     }, 250);
   }
 });

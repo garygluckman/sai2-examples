@@ -23,8 +23,8 @@ template.innerHTML = `
   </style>
 	<div class="sai2-interface-plot-top">
     <div class="metadata">
-      <select id="x_key" class="chosen_select" data-placeholder="Select x key..."></select>
-      <select id="y_key" class="chosen_select" multiple data-placeholder="Select y key..."></select>
+      <select class="x_key chosen_select" data-placeholder="Select x key..."></select>
+      <select class="y_key chosen_select" multiple data-placeholder="Select y key..."></select>
       <h3>Rate:&nbsp;</h3>
       <input class="query_rate" type="number" step="0.1">
       <button class="plot_button"></button>
@@ -112,8 +112,8 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
 
     // get DOM elements
     let template_node = this.template.content.cloneNode(true);
-    let xkey_select = template_node.querySelector('#x_key');
-    let ykey_select = template_node.querySelector('#y_key');
+    let xkey_select = template_node.querySelector('.x_key');
+    let ykey_select = template_node.querySelector('.y_key');
     let query_rate_input = template_node.querySelector('.query_rate');
     let plot_button = template_node.querySelector('.plot_button');
     let plot_div = template_node.querySelector('.plot-div');
@@ -141,11 +141,11 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
         ykey_select.append(opt2);
       }
 
-      $('#x_key').chosen({ width: '100%' });
-      $('#y_key').chosen({ width: '100%' });
+      $('.x_key').chosen({ width: '100%' });
+      $('.y_key').chosen({ width: '100%' });
 
-      $('#x_key').trigger("chosen:updated");
-      $('#y_key').trigger("chosen:updated");
+      $('.x_key').trigger("chosen:updated");
+      $('.y_key').trigger("chosen:updated");
     });
 
     // initialize empty plot & templates
@@ -197,6 +197,7 @@ customElements.define('sai2-interface-plot', class extends HTMLElement {
         // reset chart config
         this.chart_config.dataset.source = {};
         this.chart_config.series = [];
+        this.chart_config.legend = { type: 'scroll' };
         this.chart.setOption(this.chart_config);
 
         plot_button.innerHTML = 'Stop';
