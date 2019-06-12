@@ -1,7 +1,6 @@
 cmake_minimum_required (VERSION 2.8.12)
-project (PandaApplications)
+project (SAI2-EXAMPLES)
 SET(CMAKE_CXX_FLAGS "-std=c++11")
-# SET(CMAKE_BUILD_TYPE "Debug")
 SET(CMAKE_BUILD_TYPE "Release")
 
 # set common dependencies
@@ -57,6 +56,9 @@ find_package(SAI2-URDF REQUIRED)
 include_directories(${SAI2-URDF_INCLUDE_DIRS})
 add_definitions(${SAI2-URDF_DEFINITIONS})
 
+# - SAI2-INTERFACES
+find_package(SAI2-INTERFACES REQUIRED)
+
 # - glfw3
 find_package(glfw3 QUIET)
 find_library(GLFW_LIBRARY glfw)
@@ -74,7 +76,7 @@ set(SAI2-EXAMPLES_COMMON_LIBRARIES
 	)
 
 # add apps
-set (SAI2-EXAMPLES_BINARY_DIR                  ${PROJECT_SOURCE_DIR}/bin)
+set (SAI2-EXAMPLES_BINARY_DIR ${PROJECT_SOURCE_DIR}/bin)
 
 add_subdirectory(01-non_redundant_arm)
 add_subdirectory(02-redundant_arm)
