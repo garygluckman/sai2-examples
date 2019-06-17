@@ -26,6 +26,7 @@
     <script type="module" src="./js/module/sai2-interface-toggle.js"></script>
     <script type="module" src="./js/module/sai2-interface-plot.js"></script>
     <script type="module" src="./js/module/sai2-interface-enum.js"></script>
+    <script type="module" src="./js/module/sai2-interface-display.js"></script>
     <script type="module" src="./js/module/sai2-interface-trajectory-select.js"></script>
 
     <!-- global execution scripts -->
@@ -196,14 +197,16 @@
           </div>
         </div>
         <div id="primitive_trajectory_task" class="grid-half module">
-          <sai2-interface-trajectory-select 
+          <sai2-interface-trajectory-select
             xLim="[-0.5,0.5]" 
             yLim="[-0.5,0.5]" 
             zLim="[0.3,1.5]"
+            current_pos_key="sai2::examples::current_ee_pos"
             primitive_key="sai2::examples::primitive",
             primitive_value="primitive_trajectory_task",
             position_key="sai2::examples::desired_position",
-            velocity_key="sai2::examples::desired_velocity">
+            velocity_key="sai2::examples::desired_velocity"
+            style="flex: 1">
           </sai2-interface-trajectory-select>
         </div>
       </div>
