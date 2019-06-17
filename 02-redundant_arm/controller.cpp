@@ -17,7 +17,6 @@ using namespace Eigen;
 
 
 // redis keys
-// redis keys
 const string JOINT_ANGLES_KEY = "sai2::examples::sensors::q";
 const string JOINT_VELOCITIES_KEY = "sai2::examples::sensors::dq";
 const string JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::fgc";
@@ -34,6 +33,7 @@ const string CONTROL_STATE_READY = "ready";
 // posori task parameters
 const string DESIRED_POS_KEY = "sai2::examples::desired_position";
 const string DESIRED_ORI_KEY = "sai2::examples::desired_orientation";
+const string DESIRED_VEL_KEY = "sai2::examples::desired_velocity";
 const string KP_POS_KEY = "sai2::examples::kp_pos";
 const string KV_POS_KEY = "sai2::examples::kv_pos";
 const string KI_POS_KEY = "sai2::examples::ki_pos";
@@ -46,7 +46,6 @@ const string POSORI_USE_INTERPOLATION = "sai2::examples::posori_use_interpolatio
 const string DESIRED_JOINT_POS_KEY = "sai2::examples::desired_joint_position";
 const string KP_JOINT_KEY = "sai2::examples::kp_joint";
 const string KV_JOINT_KEY = "sai2::examples::kv_joint";
-const string JOINT_USE_INTERPOLATION = "sai2::examples::joint_use_interpolation";
 
 // robot file
 const string ROBOT_FILE = "resources/kuka_iiwa.urdf";
@@ -55,11 +54,12 @@ const string ROBOT_FILE = "resources/kuka_iiwa.urdf";
 const string PRIMITIVE_KEY = "sai2::examples::primitive";
 const string PRIMITIVE_JOINT_TASK = "primitive_joint_task";
 const string PRIMITIVE_POSORI_TASK = "primitive_posori_task";
-
+const string PRIMITIVE_TRAJECTORY_TASK = "primitive_trajectory_task";
 
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
 string currentPrimitive = PRIMITIVE_JOINT_TASK;
+
 
 ////////////////////// FUNCTIONS //////////////////////
 void sighandler(int)
@@ -102,7 +102,8 @@ void init_posori_task(
     Sai2Model::Sai2Model *robot,
     RedisClient& redis_client,
     Matrix3d &initial_orientation,
-    Vector3d &initial_position) 
+    Vector3d &initial_position,
+    Vector3d &initial_velocity) 
 {
 #ifdef USING_OTG
     posori_task->_use_interpolation_flag = true;
@@ -114,6 +115,9 @@ void init_posori_task(
     posori_task->_kv_ori = 20.0;
     posori_task->_ki_ori = 2.0;
 
+#ifdef USING_OTG
+    redis_client.set(POSORI_USE_INTERPOLATION, std::to_string(static_cast<int>(posori_task->_use_interpolation_flag)));
+#endif
     redis_client.set(KP_POS_KEY, std::to_string(posori_task->_kp_pos));
     redis_client.set(KV_POS_KEY, std::to_string(posori_task->_kv_pos));
     redis_client.set(KI_POS_KEY, std::to_string(posori_task->_ki_pos));
@@ -123,8 +127,10 @@ void init_posori_task(
 
     robot->rotation(initial_orientation, posori_task->_link_name);
     robot->position(initial_position, posori_task->_link_name, posori_task->_control_frame.translation());
+    robot->linearVelocity(initial_velocity, posori_task->_link_name, posori_task->_control_frame.translation());
     redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, initial_position); 
     redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, Vector3d::Zero());
+    redis_client.setEigenMatrixJSON(DESIRED_VEL_KEY, Vector3d::Zero());
 }
 
 void read_joint_parameters(
@@ -133,20 +139,12 @@ void read_joint_parameters(
 {
     const std::vector<std::string> redis_query_keys {
         KP_JOINT_KEY,
-        KV_JOINT_KEY,
-#ifdef USING_OTG
-        JOINT_USE_INTERPOLATION // KEEP THIS LAST
-#endif
+        KV_JOINT_KEY
     };
 
     auto key_values = redis_client.mget(redis_query_keys);
     joint_task->_kp = std::stod(key_values[0]);
     joint_task->_kv = std::stod(key_values[1]);
-#ifdef USING_OTG
-    joint_task->_use_interpolation_flag = static_cast<bool>(
-        std::stoi(key_values.back())
-    );
-#endif
 }
 
 void init_joint_task(
@@ -154,31 +152,26 @@ void init_joint_task(
     Sai2Model::Sai2Model *robot,
     RedisClient& redis_client)
 {
-    joint_task->_kp = 50.;
-    joint_task->_kv = 14.;
-#ifdef USING_OTG
-    joint_task->_use_interpolation_flag = true;
-#endif
+    joint_task->_kp = 100.;
+    joint_task->_kv = 20.;
     redis_client.set(KP_JOINT_KEY, std::to_string(joint_task->_kp));
     redis_client.set(KV_JOINT_KEY, std::to_string(joint_task->_kv));
-#ifdef USING_OTG
-    redis_client.set(JOINT_USE_INTERPOLATION, std::to_string(static_cast<int>(
-        joint_task->_use_interpolation_flag
-    )));
-#endif
     redis_client.setEigenMatrixJSON(DESIRED_JOINT_POS_KEY, robot->_q); 
 }
 
-int main(int argc, char **argv)
+int main(int argc, char **argv) 
 {
-    // create redis client
+    // open redis
     auto redis_client = RedisClient();
     redis_client.connect();
 
-    // set up signal handler
+    // set up signal handlers
     signal(SIGABRT, &sighandler);
     signal(SIGTERM, &sighandler);
     signal(SIGINT, &sighandler);
+
+    // initialize controller state
+    redis_client.set(PRIMITIVE_KEY, currentPrimitive);
 
     // notify UI that we are initializing
     redis_client.set(CONTROL_STATE_KEY, CONTROL_STATE_INITIALIZING);
@@ -202,11 +195,11 @@ int main(int argc, char **argv)
     // initialize tasks
     Matrix3d initial_orientation;
     Vector3d initial_position;
-    auto posori_task = new Sai2Primitives::PosOriTask(robot, link_name, pos_in_link);
-    init_posori_task(posori_task, robot, redis_client, initial_orientation, initial_position);
+    Vector3d initial_velocity;
+    Sai2Primitives::PosOriTask *posori_task = new Sai2Primitives::PosOriTask(robot, link_name, pos_in_link);
+    init_posori_task(posori_task, robot, redis_client, initial_orientation, initial_position, initial_velocity);
 
-    // joint task
-    auto joint_task = new Sai2Primitives::JointTask(robot);
+    Sai2Primitives::JointTask *joint_task = new Sai2Primitives::JointTask(robot);
     init_joint_task(joint_task, robot, redis_client);
 
     // initialization complete
@@ -224,7 +217,7 @@ int main(int argc, char **argv)
 
     runloop = true;
     while (runloop) 
-    {
+    { 
         fTimerDidSleep = timer.waitForNextLoop();
 
         // update time
@@ -237,33 +230,39 @@ int main(int argc, char **argv)
         robot->updateModel();
         robot->coriolisForce(coriolis);
 
-        N_prec = MatrixXd::Identity(dof, dof);
+        MatrixXd N_prec = MatrixXd::Identity(dof, dof);
 
-        // read current state
+        // read the current state
         string interfacePrimitive = redis_client.get(PRIMITIVE_KEY);
 
         if (interfacePrimitive == PRIMITIVE_JOINT_TASK)
         {
             if (currentPrimitive != interfacePrimitive)
                 joint_task->reInitializeTask();
-
+                
             joint_task->updateTaskModel(N_prec);
 
             read_joint_parameters(joint_task, redis_client);
             joint_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_JOINT_POS_KEY);
             joint_task->computeTorques(command_torques);
         }
-        else if (interfacePrimitive == PRIMITIVE_POSORI_TASK)
+        else if (interfacePrimitive == PRIMITIVE_POSORI_TASK || interfacePrimitive == PRIMITIVE_TRAJECTORY_TASK)
         {
             if (currentPrimitive != interfacePrimitive)
                 posori_task->reInitializeTask();
-
+                
             posori_task->updateTaskModel(N_prec);
             N_prec = posori_task->_N;
 
             read_posori_parameters(posori_task, redis_client);
             posori_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_POS_KEY);
+            posori_task->_desired_velocity = redis_client.getEigenMatrixJSON(DESIRED_VEL_KEY);
             
+#ifdef USING_OTG
+            // disable OTG for trajectory task 
+            if (interfacePrimitive == PRIMITIVE_TRAJECTORY_TASK)
+                redis_client.set(POSORI_USE_INTERPOLATION, "0");
+#endif
             // interface specifies fixed angles, convert to rot matrix
             MatrixXd desired_fixed = redis_client.getEigenMatrixJSON(DESIRED_ORI_KEY);
             Matrix3d desired_rmat;
@@ -279,7 +278,7 @@ int main(int argc, char **argv)
             posori_task->computeTorques(command_torques);
         }
         currentPrimitive = interfacePrimitive;
-
+    
         // -------------------------------------------
         command_torques = command_torques + coriolis;
         redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
@@ -297,6 +296,7 @@ int main(int argc, char **argv)
         // -------------------------------------------
         if (controller_counter % 500 == 0)
         {
+            cout << "current primitive: " << currentPrimitive << endl;
             if (currentPrimitive == PRIMITIVE_JOINT_TASK)
             {
                 cout << time << endl;
@@ -305,7 +305,7 @@ int main(int argc, char **argv)
                 cout << "position error : " << (joint_task->_desired_position - joint_task->_current_position).norm() << endl;
                 cout << endl;
             }
-            else if (currentPrimitive == PRIMITIVE_POSORI_TASK)
+            else if (currentPrimitive == PRIMITIVE_POSORI_TASK || currentPrimitive == PRIMITIVE_TRAJECTORY_TASK)
             {
                 cout << time << endl;
                 cout << "desired position : " << posori_task->_desired_position.transpose() << endl;
