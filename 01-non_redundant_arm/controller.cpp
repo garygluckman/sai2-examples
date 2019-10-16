@@ -128,8 +128,12 @@ void init_posori_task(
     robot->rotation(initial_orientation, posori_task->_link_name);
     robot->position(initial_position, posori_task->_link_name, posori_task->_control_frame.translation());
     robot->linearVelocity(initial_velocity, posori_task->_link_name, posori_task->_control_frame.translation());
+
+    // we are doing ZYX, but we store XYZ
+    Vector3d initial_euler_angles = initial_orientation.eulerAngles(2, 1, 0).reverse();
+
     redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, initial_position); 
-    redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, Vector3d::Zero());
+    redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, initial_euler_angles);
     redis_client.setEigenMatrixJSON(DESIRED_VEL_KEY, Vector3d::Zero());
 }
 
@@ -190,7 +194,7 @@ int main(int argc, char **argv)
     VectorXd coriolis = VectorXd::Zero(dof);
 
     const string link_name = "end-effector";
-    const Vector3d pos_in_link = Vector3d(0.07,0.0,0.0);
+    const Vector3d pos_in_link = Vector3d(0.07, 0.0, 0.0);
 
     // initialize tasks
     Matrix3d initial_orientation;
@@ -235,22 +239,37 @@ int main(int argc, char **argv)
         // read the current state
         string interfacePrimitive = redis_client.get(PRIMITIVE_KEY);
 
-        if (interfacePrimitive == PRIMITIVE_JOINT_TASK)
+        // if we just changed primitives, reset & reinit
+        if (currentPrimitive != interfacePrimitive)
         {
-            if (currentPrimitive != interfacePrimitive)
+            if (interfacePrimitive == PRIMITIVE_JOINT_TASK)
+            {
+                joint_task->_current_position = robot->_q;
                 joint_task->reInitializeTask();
-                
-            joint_task->updateTaskModel(N_prec);
+                redis_client.setEigenMatrixJSON(DESIRED_JOINT_POS_KEY, robot->_q); 
+            }
+            else if (interfacePrimitive == PRIMITIVE_POSORI_TASK)
+            {
+                posori_task->reInitializeTask();
+                redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, posori_task->_current_position);
 
+                // ZYX euler angles, but stored as XYZ
+                Vector3d angles = posori_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
+                redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, angles);
+            }
+        }
+
+        // normal operation for each task
+        else if (interfacePrimitive == PRIMITIVE_JOINT_TASK)
+        {
+            joint_task->updateTaskModel(N_prec);
             read_joint_parameters(joint_task, redis_client);
             joint_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_JOINT_POS_KEY);
             joint_task->computeTorques(command_torques);
         }
+
         else if (interfacePrimitive == PRIMITIVE_POSORI_TASK || interfacePrimitive == PRIMITIVE_TRAJECTORY_TASK)
         {
-            if (currentPrimitive != interfacePrimitive)
-                posori_task->reInitializeTask();
-                
             posori_task->updateTaskModel(N_prec);
             N_prec = posori_task->_N;
 
@@ -267,8 +286,8 @@ int main(int argc, char **argv)
             MatrixXd desired_fixed = redis_client.getEigenMatrixJSON(DESIRED_ORI_KEY);
             Matrix3d desired_rmat;
             desired_rmat = Eigen::AngleAxisd(desired_fixed(2), Eigen::Vector3d::UnitZ())
-                         * Eigen::AngleAxisd(desired_fixed(1), Eigen::Vector3d::UnitY())
-                         * Eigen::AngleAxisd(desired_fixed(0), Eigen::Vector3d::UnitX());
+                        * Eigen::AngleAxisd(desired_fixed(1), Eigen::Vector3d::UnitY())
+                        * Eigen::AngleAxisd(desired_fixed(0), Eigen::Vector3d::UnitX());
             posori_task->_desired_orientation = desired_rmat;
 
             // we also need to read linear & angular velocity
