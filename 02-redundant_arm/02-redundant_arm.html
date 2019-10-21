@@ -123,6 +123,24 @@
                   display="Kv Joint"
                   min="0" max="100" step="0.01">
                 </sai2-interfaces-slider>
+                <sai2-interfaces-toggle 
+                  display="Use Interpolation"
+                  key="sai2::examples::joint_use_interpolation">
+                </sai2-interfaces-toggle>
+                <sai2-interfaces-accordion displayName="Velocity Saturation" key="sai2::examples::use_joint_velocity_saturation">
+                  <sai2-interfaces-slider
+                    key="sai2::examples::joint_velocity_saturation"
+                    display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6", "Joint 7"]'
+                    min="0" max="10" step="0.01">
+                  </sai2-interfaces-slider>
+                </sai2-interfaces-accordion>
+                <sai2-interfaces-accordion displayName="Dynamic Decoupling" key="sai2::examples::use_joint_dynamic_decoupling">
+                  <sai2-interfaces-slider
+                    key="sai2::examples::joint_dynamic_decoupling"
+                    display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6", "Joint 7"]'
+                    min="0" max="10" step="0.01">
+                  </sai2-interfaces-slider>
+                </sai2-interfaces-accordion>
               </div>
           </sai2-interfaces-select-option>
 
@@ -177,6 +195,20 @@
                 display="Use Interpolation"
                 key="sai2::examples::posori_use_interpolation">
               </sai2-interfaces-toggle>
+              <sai2-interfaces-accordion displayName="Velocity Saturation" key="sai2::examples::use_posori_velocity_saturation">
+                <sai2-interfaces-slider
+                  key="sai2::examples::posori_velocity_saturation"
+                  display='["Linear Velocity", "Angular Velocity"]'
+                  min="0" max="10" step="0.01">
+                </sai2-interfaces-slider>
+              </sai2-interfaces-accordion>
+              <sai2-interfaces-accordion displayName="Dynamic Decoupling" key="sai2::examples::use_posori_dynamic_decoupling">
+                <sai2-interfaces-slider
+                  key="sai2::examples::joint_dynamic_decoupling"
+                  display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6", "Joint 7"]'
+                  min="0" max="10" step="0.01">
+                </sai2-interfaces-slider>
+              </sai2-interfaces-accordion>
             </div>
           </sai2-interfaces-select-option>
 
