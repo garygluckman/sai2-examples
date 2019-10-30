@@ -94,7 +94,7 @@
   </head>
   <body>
     <div class="title">
-      <h1>Redundant Arm Example (Kuka)</h1>
+      <h1>Redundant Arm Example (Panda)</h1>
       <img src="./images/operational_space.png" />
     </div>
     
@@ -150,13 +150,13 @@
               <sai2-interfaces-slider 
                 key="sai2::examples::desired_position"
                 display='["X", "Y", "Z"]'
-                min="[-0.5,-0.5,0.3]" max="[0.5,0.5,1.5]" step="0.01">
+                min="[-0.5,-0.5,0.3]" max="[0.5,0.5,0.8]" step="0.01">
               </sai2-interfaces-slider>
               <h2>Desired Orientation <br>(XYZ Fixed Angles)</h2>
               <sai2-interfaces-slider
                 key="sai2::examples::desired_orientation"
                 display='["X (γ)", "Y (β)", "Z (α)"]'
-                min="-6.28" max="6.28" step="0.01">
+                min="[-1.5,1.5,1.5]" max="[1.5,5.0,5.0]" step="0.01">
               </sai2-interfaces-slider>
             </div>
             <div class="col center">
@@ -199,7 +199,7 @@
                 <sai2-interfaces-slider
                   key="sai2::examples::posori_velocity_saturation"
                   display='["Linear Velocity", "Angular Velocity"]'
-                  min="0" max="10" step="0.01">
+                  min="[0,0]" max="[0.5,1.57]" step="0.01">
                 </sai2-interfaces-slider>
               </sai2-interfaces-accordion>
               <sai2-interfaces-accordion displayName="Dynamic Decoupling" key="sai2::examples::use_posori_dynamic_decoupling">

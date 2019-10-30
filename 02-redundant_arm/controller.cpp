@@ -15,11 +15,18 @@
 using namespace std;
 using namespace Eigen;
 
+// const bool flag_simulation = true;
+const bool flag_simulation = false;
 
 // redis keys
-const string JOINT_ANGLES_KEY = "sai2::examples::sensors::q";
-const string JOINT_VELOCITIES_KEY = "sai2::examples::sensors::dq";
-const string JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::fgc";
+string JOINT_ANGLES_KEY = "sai2::examples::sensors::q";
+string JOINT_VELOCITIES_KEY = "sai2::examples::sensors::dq";
+string JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::fgc";
+
+string MASSMATRIX_KEY;
+string ROBOT_GRAVITY_KEY;
+string CORIOLIS_KEY;
+
 
 const string CURRENT_EE_POS_KEY = "sai2::examples::current_ee_pos";
 const string CURRENT_EE_VEL_KEY = "sai2::examples::current_ee_vel";
@@ -110,9 +117,17 @@ void read_posori_parameters(
     auto velocity_sat = redis_client.decodeEigenMatrixJSON(key_values[7]);
 	posori_task->_linear_saturation_velocity = velocity_sat(0, 0);
 	posori_task->_angular_saturation_velocity = velocity_sat(1, 0);
-    posori_task->_use_interpolation_flag = static_cast<bool>(
-        std::stoi(key_values.back())
-    );
+
+    bool new_posori_interpolation_flag = static_cast<bool>(std::stoi(key_values.back()));
+    if(new_posori_interpolation_flag && ! posori_task->_use_interpolation_flag)
+    {
+        posori_task->reInitializeTask();
+        posori_task->_use_interpolation_flag = true;
+    }
+    if(!new_posori_interpolation_flag)
+    {
+        posori_task->_use_interpolation_flag = false;
+    }
 #endif
 }
 
@@ -128,12 +143,12 @@ void init_posori_task(
     posori_task->_use_interpolation_flag = true;
     posori_task->_use_velocity_saturation_flag = false;
 #endif
-    posori_task->_kp_pos = 100.0;
-    posori_task->_kv_pos = 20.0;
-    posori_task->_ki_pos = 2.0;
-    posori_task->_kp_ori = 100.0;
-    posori_task->_kv_ori = 20.0;
-    posori_task->_ki_ori = 2.0;
+    posori_task->_kp_pos = 50.0;
+    posori_task->_kv_pos = 12.0;
+    posori_task->_ki_pos = 0.0;
+    posori_task->_kp_ori = 50.0;
+    posori_task->_kv_ori = 12.0;
+    posori_task->_ki_ori = 0.0;
 
 #ifdef USING_OTG
     redis_client.set(POSORI_USE_INTERPOLATION, std::to_string(static_cast<int>(posori_task->_use_interpolation_flag)));
@@ -184,7 +199,16 @@ void read_joint_parameters(
     joint_task->_saturation_velocity = redis_client.decodeEigenMatrixJSON(key_values[3]);
 
 #ifdef USING_OTG
-    joint_task->_use_interpolation_flag = static_cast<bool>(std::stoi(key_values.back()));
+    bool new_joint_interpolation_flag = static_cast<bool>(std::stoi(key_values.back()));
+    if(new_joint_interpolation_flag && ! joint_task->_use_interpolation_flag)
+    {
+        joint_task->reInitializeTask();
+        joint_task->_use_interpolation_flag = true;
+    }
+    if(!new_joint_interpolation_flag)
+    {
+        joint_task->_use_interpolation_flag = false;
+    }
 #endif
 }
 
@@ -216,6 +240,17 @@ void init_joint_task(
 
 int main(int argc, char **argv) 
 {
+
+    if(!flag_simulation)
+    {
+        JOINT_TORQUES_COMMANDED_KEY = "sai2::FrankaPanda::Bonnie::actuators::fgc";
+        JOINT_ANGLES_KEY  = "sai2::FrankaPanda::Bonnie::sensors::q";
+        JOINT_VELOCITIES_KEY = "sai2::FrankaPanda::Bonnie::sensors::dq";
+        MASSMATRIX_KEY = "sai2::FrankaPanda::Bonnie::sensors::model::massmatrix";
+        CORIOLIS_KEY = "sai2::FrankaPanda::Bonnie::sensors::model::coriolis";
+        ROBOT_GRAVITY_KEY = "sai2::FrankaPanda::Bonnie::sensors::model::robot_gravity";  
+    }
+
     // open redis
     auto redis_client = RedisClient();
     redis_client.connect();
@@ -285,8 +320,19 @@ int main(int argc, char **argv)
         // read joint positions, velocities, update model
         robot->_q = redis_client.getEigenMatrixJSON(JOINT_ANGLES_KEY);
         robot->_dq = redis_client.getEigenMatrixJSON(JOINT_VELOCITIES_KEY);
-        robot->updateModel();
-        robot->coriolisForce(coriolis);
+
+        if(flag_simulation)
+        {
+            robot->updateModel();
+            robot->coriolisForce(coriolis);
+        }
+        else
+        {
+            robot->updateKinematics();
+            robot->_M = redis_client.getEigenMatrixJSON(MASSMATRIX_KEY);
+            robot->_M_inv = robot->_M.inverse();
+            coriolis = redis_client.getEigenMatrixJSON(CORIOLIS_KEY);
+        }
 
         MatrixXd N_prec = MatrixXd::Identity(dof, dof);
 
