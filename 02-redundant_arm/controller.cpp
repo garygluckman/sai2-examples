@@ -57,7 +57,7 @@ const string USE_DYN_DEC_JOINT_KEY = "sai2::examples::use_joint_dynamic_decoupli
 const string DYN_DEC_JOINT_KEY = "sai2::examples::joint_dynamic_decoupling";
 
 // robot file
-const string ROBOT_FILE = "resources/kuka_iiwa.urdf";
+const string ROBOT_FILE = "resources/panda_arm.urdf";
 
 // state-related keys
 const string PRIMITIVE_KEY = "sai2::examples::primitive";
@@ -241,11 +241,14 @@ int main(int argc, char **argv)
     // prepare controller
     int dof = robot->dof();
     VectorXd command_torques = VectorXd::Zero(dof);
+    VectorXd joint_task_torques = VectorXd::Zero(dof);
+    VectorXd posori_task_torques = VectorXd::Zero(dof);
+
     MatrixXd N_prec = MatrixXd::Identity(dof,dof);
     VectorXd coriolis = VectorXd::Zero(dof);
 
-    const string link_name = "link6";
-    const Vector3d pos_in_link = Vector3d(0.0, 0.0, 0.0);
+    const string link_name = "link7";
+    const Vector3d pos_in_link = Vector3d(0.0, 0.0, 0.12);
 
     // initialize tasks
     Matrix3d initial_orientation;
@@ -316,12 +319,14 @@ int main(int argc, char **argv)
             joint_task->updateTaskModel(N_prec);
             read_joint_parameters(joint_task, redis_client);
             joint_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_JOINT_POS_KEY);
-            joint_task->computeTorques(command_torques);
+            joint_task->computeTorques(joint_task_torques);
+            command_torques = joint_task_torques + coriolis;
         }
         else if (interfacePrimitive == PRIMITIVE_POSORI_TASK || interfacePrimitive == PRIMITIVE_TRAJECTORY_TASK)
         {
             posori_task->updateTaskModel(N_prec);
             N_prec = posori_task->_N;
+            joint_task->updateTaskModel(N_prec);
 
             read_posori_parameters(posori_task, redis_client);
             posori_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_POS_KEY);
@@ -344,12 +349,13 @@ int main(int argc, char **argv)
             posori_task->_desired_angular_velocity = Vector3d::Zero();
 
             // compute torques
-            posori_task->computeTorques(command_torques);
+            posori_task->computeTorques(posori_task_torques);
+            joint_task->computeTorques(joint_task_torques);
+            command_torques = posori_task_torques + joint_task_torques + coriolis;
         }
         currentPrimitive = interfacePrimitive;
     
         // -------------------------------------------
-        command_torques = command_torques + coriolis;
         redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 
         // log current EE position and velocity to redis

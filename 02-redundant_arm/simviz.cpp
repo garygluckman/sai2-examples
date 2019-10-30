@@ -26,8 +26,8 @@ const string JOINT_VELOCITIES_KEY = "sai2::examples::sensors::dq";
 const string JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::fgc";
 
 const string world_file = "resources/world.urdf";
-const string robot_file = "resources/kuka_iiwa.urdf";
-const string robot_name = "Kuka-IIWA";
+const string robot_file = "resources/panda_arm.urdf";
+const string robot_name = "PANDA";
 
 const string camera_name = "camera";
 
@@ -244,7 +244,7 @@ GLFWwindow* glfwInitialize() {
 
     // create window and make it current
     glfwWindowHint(GLFW_VISIBLE, 0);
-    GLFWwindow* window = glfwCreateWindow(windowW, windowH, "SAI2.0 - CS327a HW2", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(windowW, windowH, "SAI2.0 Example - Redundant Arm", NULL, NULL);
 	glfwSetWindowPos(window, windowPosX, windowPosY);
 	glfwShowWindow(window);
     glfwMakeContextCurrent(window);

@@ -108,7 +108,7 @@
                 <sai2-interfaces-slider 
                   key="sai2::examples::desired_joint_position"
                   display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6", "Joint 7"]'
-                  min="-6.28" max="6.28" step="0.01">
+                  min="[-2.89, -1.76, -2.89, -3.07, -2.89, -0.01, -2.89]" max="[2.89, 1.76, 2.89, -0.07, 2.89, 3.75, 2.89]" step="0.01">
                 </sai2-interfaces-slider>
               </div>
               <div class="col center">
@@ -116,12 +116,12 @@
                 <sai2-interfaces-slider 
                   key="sai2::examples::kp_joint"
                   display="Kp Joint"
-                  min="0" max="400" step="0.01">
+                  min="0" max="200" step="0.01">
                 </sai2-interfaces-slider>
                 <sai2-interfaces-slider 
                   key="sai2::examples::kv_joint"
                   display="Kv Joint"
-                  min="0" max="100" step="0.01">
+                  min="0" max="35" step="0.01">
                 </sai2-interfaces-slider>
                 <sai2-interfaces-toggle 
                   display="Use Interpolation"
