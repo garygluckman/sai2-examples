@@ -186,58 +186,124 @@
             </div>
             <div class="col center">
               <h2>Gains</h2>
-              <sai2-interfaces-slider 
-                key="sai2::examples::kp_pos"
-                display="Kp Pos"
-                min="0" max="400" step="0.01">
-              </sai2-interfaces-slider>
-              <sai2-interfaces-toggle-group name="Use Unsafe Gains">
+
+              <sai2-interfaces-toggle-group key="sai2::examples::use_isotropic_pos_gains" name="Use Isotropic Gains">
                 <sai2-interfaces-toggle-group-enabled>
                   <sai2-interfaces-slider 
-                    key="sai2::examples::kv_pos"
-                    display="Kv Pos"
-                    min="-20" max="100" step="0.01">
+                    key="sai2::examples::kp_pos"
+                    display="Kp Pos"
+                    min="0" max="400" step="0.01">
                   </sai2-interfaces-slider>
-                </sai2-interfaces-toggle-group-enabled>
-                <sai2-interfaces-toggle-group-disabled>
+                  <sai2-interfaces-toggle-group name="Use Unsafe Gains">
+                    <sai2-interfaces-toggle-group-enabled>
+                      <sai2-interfaces-slider 
+                        key="sai2::examples::kv_pos"
+                        display="Kv Pos"
+                        min="-20" max="100" step="0.01">
+                      </sai2-interfaces-slider>
+                    </sai2-interfaces-toggle-group-enabled>
+                    <sai2-interfaces-toggle-group-disabled>
+                      <sai2-interfaces-slider 
+                        key="sai2::examples::kv_pos"
+                        display="Kv Pos"
+                        min="0" max="100" step="0.01">
+                      </sai2-interfaces-slider>
+                    </sai2-interfaces-toggle-group-disabled>
+                  </sai2-interfaces-toggle-group>   
                   <sai2-interfaces-slider 
-                    key="sai2::examples::kv_pos"
-                    display="Kv Pos"
+                    key="sai2::examples::ki_pos"
+                    display="Ki Pos"
                     min="0" max="100" step="0.01">
                   </sai2-interfaces-slider>
-                </sai2-interfaces-toggle-group-disabled>
-              </sai2-interfaces-toggle-group>   
-              <sai2-interfaces-slider 
-                key="sai2::examples::ki_pos"
-                display="Ki Pos"
-                min="0" max="100" step="0.01">
-              </sai2-interfaces-slider>
-              <sai2-interfaces-slider 
-                key="sai2::examples::kp_ori"
-                display="Kp Ori"
-                min="0" max="100" step="0.01">
-              </sai2-interfaces-slider>
-              <sai2-interfaces-toggle-group name="Use Unsafe Gains">
-                <sai2-interfaces-toggle-group-enabled>
-                  <sai2-interfaces-slider 
-                    key="sai2::examples::kv_ori"
-                    display="Kv Ori"
-                    min="-20" max="100" step="0.01">
-                  </sai2-interfaces-slider>
                 </sai2-interfaces-toggle-group-enabled>
                 <sai2-interfaces-toggle-group-disabled>
                   <sai2-interfaces-slider 
-                    key="sai2::examples::kv_ori"
-                    display="Kv Ori"
+                    key="sai2::examples::kp_nonisotropic_pos"
+                    display="Kp Pos"
+                    min="0" max="400" step="0.01">
+                  </sai2-interfaces-slider>
+                  <sai2-interfaces-toggle-group name="Use Unsafe Gains">
+                    <sai2-interfaces-toggle-group-enabled>
+                      <sai2-interfaces-slider 
+                        key="sai2::examples::kv_nonisotropic_pos"
+                        display="Kv Pos"
+                        min="-20" max="100" step="0.01">
+                      </sai2-interfaces-slider>
+                    </sai2-interfaces-toggle-group-enabled>
+                    <sai2-interfaces-toggle-group-disabled>
+                      <sai2-interfaces-slider 
+                        key="sai2::examples::kv_nonisotropic_pos"
+                        display="Kv Pos"
+                        min="0" max="100" step="0.01">
+                      </sai2-interfaces-slider>
+                    </sai2-interfaces-toggle-group-disabled>
+                  </sai2-interfaces-toggle-group>   
+                  <sai2-interfaces-slider 
+                    key="sai2::examples::ki_pos"
+                    display="Ki Pos"
                     min="0" max="100" step="0.01">
                   </sai2-interfaces-slider>
                 </sai2-interfaces-toggle-group-disabled>
               </sai2-interfaces-toggle-group>
-              <sai2-interfaces-slider 
-                key="sai2::examples::ki_ori"
-                display="Ki Ori"
-                min="0" max="100" step="0.01">
-              </sai2-interfaces-slider>
+
+              <sai2-interfaces-toggle-group key="sai2::examples::use_isotropic_ori_gains" name="Use Isotropic Gains">
+                <sai2-interfaces-toggle-group-enabled>
+                  <sai2-interfaces-slider 
+                    key="sai2::examples::kp_ori"
+                    display="Kp Ori"
+                    min="0" max="100" step="0.01">
+                  </sai2-interfaces-slider>
+                  <sai2-interfaces-toggle-group name="Use Unsafe Gains">
+                    <sai2-interfaces-toggle-group-enabled>
+                      <sai2-interfaces-slider 
+                        key="sai2::examples::kv_ori"
+                        display="Kv Ori"
+                        min="-20" max="100" step="0.01">
+                      </sai2-interfaces-slider>
+                    </sai2-interfaces-toggle-group-enabled>
+                    <sai2-interfaces-toggle-group-disabled>
+                      <sai2-interfaces-slider 
+                        key="sai2::examples::kv_ori"
+                        display="Kv Ori"
+                        min="0" max="100" step="0.01">
+                      </sai2-interfaces-slider>
+                    </sai2-interfaces-toggle-group-disabled>
+                  </sai2-interfaces-toggle-group>
+                  <sai2-interfaces-slider 
+                    key="sai2::examples::ki_ori"
+                    display="Ki Ori"
+                    min="0" max="100" step="0.01">
+                  </sai2-interfaces-slider>
+                </sai2-interfaces-toggle-group-enabled>
+                <sai2-interfaces-toggle-group-disabled>
+                    <sai2-interfaces-slider 
+                    key="sai2::examples::kp_nonisotropic_ori"
+                    display="Kp Ori"
+                    min="0" max="100" step="0.01">
+                  </sai2-interfaces-slider>
+                  <sai2-interfaces-toggle-group name="Use Unsafe Gains">
+                    <sai2-interfaces-toggle-group-enabled>
+                      <sai2-interfaces-slider 
+                        key="sai2::examples::kv_nonisotropic_ori"
+                        display="Kv Ori"
+                        min="-20" max="100" step="0.01">
+                      </sai2-interfaces-slider>
+                    </sai2-interfaces-toggle-group-enabled>
+                    <sai2-interfaces-toggle-group-disabled>
+                      <sai2-interfaces-slider 
+                        key="sai2::examples::kv_nonisotropic_ori"
+                        display="Kv Ori"
+                        min="0" max="100" step="0.01">
+                      </sai2-interfaces-slider>
+                    </sai2-interfaces-toggle-group-disabled>
+                  </sai2-interfaces-toggle-group>
+                  <sai2-interfaces-slider 
+                    key="sai2::examples::ki_nonisotropic_ori"
+                    display="Ki Ori"
+                    min="0" max="100" step="0.01">
+                  </sai2-interfaces-slider>
+                </sai2-interfaces-toggle-group-disabled>
+              </sai2-interfaces-toggle-group>
               <sai2-interfaces-toggle 
                 display="Use Interpolation"
                 key="sai2::examples::posori_use_interpolation">

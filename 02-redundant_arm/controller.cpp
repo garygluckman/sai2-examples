@@ -118,6 +118,7 @@ void read_posori_parameters(
 #endif
     };
 
+    auto identity = Matrix3d::Identity();
     auto key_values = redis_client.mget(query_keys);
     posori_task->setIsotropicGainsPosition(
         std::stod(key_values[0]),
@@ -130,7 +131,19 @@ void read_posori_parameters(
         std::stod(key_values[5])
     );
     
-    // TODO: 6 - 11 are nonisotropic gains, not implemented
+    posori_task->setNonIsotropicGainsPosition(
+        identity,
+        redis_client.decodeEigenMatrixJSON(key_values[6]).col(0),
+        redis_client.decodeEigenMatrixJSON(key_values[7]).col(0),
+        redis_client.decodeEigenMatrixJSON(key_values[8]).col(0)
+    );
+
+    posori_task->setNonIsotropicGainsOrientation(
+        identity,
+        redis_client.decodeEigenMatrixJSON(key_values[9]).col(0),
+        redis_client.decodeEigenMatrixJSON(key_values[10]).col(0),
+        redis_client.decodeEigenMatrixJSON(key_values[11]).col(0)
+    );
 
     bool use_isotropic_pos_gains = static_cast<bool>(std::stoi(key_values[12]));
     bool use_isotropic_ori_gains = static_cast<bool>(std::stoi(key_values[13]));
