@@ -16,6 +16,7 @@ using namespace std;
 using namespace Eigen;
 
 const bool flag_simulation = true;
+// const bool flag_simulation = false;
 
 // redis keys
 string JOINT_ANGLES_KEY = "sai2::examples::sensors::q";
