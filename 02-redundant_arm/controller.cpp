@@ -199,6 +199,14 @@ void init_posori_task(
     redis_client.set(KP_ORI_KEY, std::to_string(posori_task->_kp_ori));
     redis_client.set(KV_ORI_KEY, std::to_string(posori_task->_kv_ori));
     redis_client.set(KI_ORI_KEY, std::to_string(posori_task->_ki_ori));
+
+    redis_client.setEigenMatrixJSON(KP_NONISOTROPIC_POS_KEY, 50.0 * Vector3d::Ones());
+    redis_client.setEigenMatrixJSON(KV_NONISOTROPIC_POS_KEY, 12.0 * Vector3d::Ones());
+    redis_client.setEigenMatrixJSON(KI_NONISOTROPIC_POS_KEY, Vector3d::Zero());
+    redis_client.setEigenMatrixJSON(KP_NONISOTROPIC_ORI_KEY, 50.0 * Vector3d::Ones());
+    redis_client.setEigenMatrixJSON(KV_NONISOTROPIC_ORI_KEY, 12.0 * Vector3d::Ones());
+    redis_client.setEigenMatrixJSON(KI_NONISOTROPIC_ORI_KEY, Vector3d::Zero());
+
     redis_client.set(USE_ISOTROPIC_POS_GAINS_KEY, "1");
     redis_client.set(USE_ISOTROPIC_ORI_GAINS_KEY, "1");
     redis_client.set(DYN_DEC_POSORI_KEY, "inertia_saturation");
@@ -244,7 +252,7 @@ void read_joint_parameters(
     auto raw_kv_non_isotropic = redis_client.decodeEigenMatrixJSON(key_values[3]);
     joint_task->setNonIsotropicGains(
         raw_kp_non_isotropic.col(0),
-        raw_kv_non_isotropic.col(1),
+        raw_kv_non_isotropic.col(0),
         VectorXd::Zero(joint_task->_robot->dof())
     );
 
