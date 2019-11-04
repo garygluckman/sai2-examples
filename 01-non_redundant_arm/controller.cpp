@@ -40,20 +40,25 @@ const string KI_POS_KEY = "sai2::examples::ki_pos";
 const string KP_ORI_KEY = "sai2::examples::kp_ori";
 const string KV_ORI_KEY = "sai2::examples::kv_ori";
 const string KI_ORI_KEY = "sai2::examples::ki_ori";
+const string KP_NONISOTROPIC_POS_KEY = "sai2::examples::kp_nonisotropic_pos";
+const string KV_NONISOTROPIC_POS_KEY = "sai2::examples::kv_nonisotropic_pos";
+const string KI_NONISOTROPIC_POS_KEY = "sai2::examples::ki_nonisotropic_pos";
+const string USE_ISOTROPIC_POS_GAINS_KEY = "sai2::examples::use_isotropic_pos_gains";
 const string POSORI_USE_INTERPOLATION = "sai2::examples::posori_use_interpolation";
 const string USE_VEL_SAT_POSORI_KEY = "sai2::examples::use_posori_velocity_saturation";
 const string VEL_SAT_POSORI_KEY = "sai2::examples::posori_velocity_saturation";
-const string USE_DYN_DEC_POSORI_KEY = "sai2::examples::use_posori_dynamic_decoupling";
 const string DYN_DEC_POSORI_KEY = "sai2::examples::posori_dynamic_decoupling";
 
 // joint task parameters
 const string DESIRED_JOINT_POS_KEY = "sai2::examples::desired_joint_position";
 const string KP_JOINT_KEY = "sai2::examples::kp_joint";
 const string KV_JOINT_KEY = "sai2::examples::kv_joint";
+const string KP_NON_ISOTROPIC_JOINT_KEY = "sai2::examples::kp_nonisotropic_joint";
+const string KV_NON_ISOTROPIC_JOINT_KEY = "sai2::examples::kv_nonisotropic_joint";
+const string USE_ISOTROPIC_JOINT_GAINS_KEY = "sai2::examples::use_isotropic_joint_gains";
 const string JOINT_USE_INTERPOLATION = "sai2::examples::joint_use_interpolation";
 const string USE_VEL_SAT_JOINT_KEY = "sai2::examples::use_joint_velocity_saturation";
 const string VEL_SAT_JOINT_KEY = "sai2::examples::joint_velocity_saturation";
-const string USE_DYN_DEC_JOINT_KEY = "sai2::examples::use_joint_dynamic_decoupling";
 const string DYN_DEC_JOINT_KEY = "sai2::examples::joint_dynamic_decoupling";
 
 // robot file
@@ -64,6 +69,7 @@ const string PRIMITIVE_KEY = "sai2::examples::primitive";
 const string PRIMITIVE_JOINT_TASK = "primitive_joint_task";
 const string PRIMITIVE_POSORI_TASK = "primitive_posori_task";
 const string PRIMITIVE_TRAJECTORY_TASK = "primitive_trajectory_task";
+const string PRIMITIVE_FLOATING_TASK = "primitive_floating_task";
 
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
@@ -87,32 +93,66 @@ void read_posori_parameters(
         KP_ORI_KEY,
         KV_ORI_KEY,
         KI_ORI_KEY,
+        KP_NONISOTROPIC_POS_KEY,
+        KV_NONISOTROPIC_POS_KEY,
+        KI_NONISOTROPIC_POS_KEY,
+        USE_ISOTROPIC_POS_GAINS_KEY,
 #ifdef USING_OTG
         USE_VEL_SAT_POSORI_KEY,
         VEL_SAT_POSORI_KEY,
-        USE_DYN_DEC_POSORI_KEY,
         DYN_DEC_POSORI_KEY,
         POSORI_USE_INTERPOLATION, // KEEP THIS LAST 
 #endif
     };
 
+    auto identity = Matrix3d::Identity();
     auto key_values = redis_client.mget(query_keys);
-    posori_task->_kp_pos = std::stod(key_values[0]);
-    posori_task->_kv_pos = std::stod(key_values[1]);
-    posori_task->_ki_pos = std::stod(key_values[2]);
-    posori_task->_kp_ori = std::stod(key_values[3]);
-    posori_task->_kv_ori = std::stod(key_values[4]);
-    posori_task->_ki_ori = std::stod(key_values[5]);
+    posori_task->setIsotropicGainsPosition(
+        std::stod(key_values[0]),
+        std::stod(key_values[1]),
+        std::stod(key_values[2])
+    );
+    posori_task->setIsotropicGainsOrientation(
+        std::stod(key_values[3]),
+        std::stod(key_values[4]),
+        std::stod(key_values[5])
+    );
+    
+    posori_task->setNonIsotropicGainsPosition(
+        identity,
+        redis_client.decodeEigenMatrixJSON(key_values[6]).col(0),
+        redis_client.decodeEigenMatrixJSON(key_values[7]).col(0),
+        redis_client.decodeEigenMatrixJSON(key_values[8]).col(0)
+    );
+
+    bool use_isotropic_pos_gains = static_cast<bool>(std::stoi(key_values[9]));
+    posori_task->_use_isotropic_gains_position = use_isotropic_pos_gains;
+
 #ifdef USING_OTG
     posori_task->_use_velocity_saturation_flag = static_cast<bool>(
-        std::stoi(key_values[6])
+        std::stoi(key_values[10])
     );
-    auto velocity_sat = redis_client.decodeEigenMatrixJSON(key_values[7]);
+    auto velocity_sat = redis_client.decodeEigenMatrixJSON(key_values[11]);
 	posori_task->_linear_saturation_velocity = velocity_sat(0, 0);
 	posori_task->_angular_saturation_velocity = velocity_sat(1, 0);
-    posori_task->_use_interpolation_flag = static_cast<bool>(
-        std::stoi(key_values.back())
-    );
+
+    auto posori_dynamic_decoupling = key_values[12];
+    if (posori_dynamic_decoupling == "full")
+        posori_task->setDynamicDecouplingFull();
+    else if (posori_dynamic_decoupling == "partial")
+        posori_task->setDynamicDecouplingPartial();
+    else if (posori_dynamic_decoupling == "inertia_saturation")
+        posori_task->setDynamicDecouplingInertiaSaturation();
+    else if (posori_dynamic_decoupling == "none")
+        posori_task->setDynamicDecouplingNone();
+
+    bool new_posori_interpolation_flag = static_cast<bool>(std::stoi(key_values.back()));
+    if (new_posori_interpolation_flag && !posori_task->_use_interpolation_flag)
+    {
+        posori_task->reInitializeTask();
+    }
+
+    posori_task->_use_interpolation_flag = new_posori_interpolation_flag;
 #endif
 }
 
@@ -134,6 +174,9 @@ void init_posori_task(
     posori_task->_kp_ori = 100.0;
     posori_task->_kv_ori = 20.0;
     posori_task->_ki_ori = 2.0;
+    posori_task->_use_isotropic_gains_position = true;
+    posori_task->_use_isotropic_gains_orientation = true;
+    posori_task->setDynamicDecouplingInertiaSaturation();
 
 #ifdef USING_OTG
     redis_client.set(POSORI_USE_INTERPOLATION, std::to_string(static_cast<int>(posori_task->_use_interpolation_flag)));
@@ -146,7 +189,13 @@ void init_posori_task(
     redis_client.set(KP_ORI_KEY, std::to_string(posori_task->_kp_ori));
     redis_client.set(KV_ORI_KEY, std::to_string(posori_task->_kv_ori));
     redis_client.set(KI_ORI_KEY, std::to_string(posori_task->_ki_ori));
-    redis_client.set(USE_DYN_DEC_POSORI_KEY, "0");
+
+    redis_client.setEigenMatrixJSON(KP_NONISOTROPIC_POS_KEY, 100.0 * Vector3d::Ones());
+    redis_client.setEigenMatrixJSON(KV_NONISOTROPIC_POS_KEY, 20.0 * Vector3d::Ones());
+    redis_client.setEigenMatrixJSON(KI_NONISOTROPIC_POS_KEY, Vector3d::Zero());
+
+    redis_client.set(USE_ISOTROPIC_POS_GAINS_KEY, "1");
+    redis_client.set(DYN_DEC_POSORI_KEY, "inertia_saturation");
 
     robot->rotation(initial_orientation, posori_task->_link_name);
     robot->position(initial_position, posori_task->_link_name, posori_task->_control_frame.translation());
@@ -158,7 +207,6 @@ void init_posori_task(
     redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, initial_position); 
     redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, initial_euler_angles);
     redis_client.setEigenMatrixJSON(DESIRED_VEL_KEY, Vector3d::Zero());
-    redis_client.setEigenMatrixJSON(DYN_DEC_POSORI_KEY, Vector3d::Zero()); // TODO adjust size
 }
 
 void read_joint_parameters(
@@ -168,23 +216,51 @@ void read_joint_parameters(
     const std::vector<std::string> redis_query_keys {
         KP_JOINT_KEY,
         KV_JOINT_KEY,
+        KP_NON_ISOTROPIC_JOINT_KEY,
+        KV_NON_ISOTROPIC_JOINT_KEY,
+        USE_ISOTROPIC_JOINT_GAINS_KEY,
         USE_VEL_SAT_JOINT_KEY,
         VEL_SAT_JOINT_KEY,
 #ifdef USING_OTG
-        USE_DYN_DEC_JOINT_KEY,
         DYN_DEC_JOINT_KEY,
         JOINT_USE_INTERPOLATION, // KEEP THIS LAST 
 #endif
     };
 
     auto key_values = redis_client.mget(redis_query_keys);
-    joint_task->_kp = std::stod(key_values[0]);
-    joint_task->_kv = std::stod(key_values[1]);
-    joint_task->_use_velocity_saturation_flag = static_cast<bool>(std::stoi(key_values[2]));
-    joint_task->_saturation_velocity = redis_client.decodeEigenMatrixJSON(key_values[3]);
+    joint_task->setIsotropicGains(
+        std::stod(key_values[0]),
+        std::stod(key_values[1]),
+        0.0
+    );
+
+    auto raw_kp_non_isotropic = redis_client.decodeEigenMatrixJSON(key_values[2]);
+    auto raw_kv_non_isotropic = redis_client.decodeEigenMatrixJSON(key_values[3]);
+    joint_task->setNonIsotropicGains(
+        raw_kp_non_isotropic.col(0),
+        raw_kv_non_isotropic.col(0),
+        VectorXd::Zero(joint_task->_robot->dof())
+    );
+
+    joint_task->_use_isotropic_gains = static_cast<bool>(std::stoi(key_values[4]));
+    joint_task->_use_velocity_saturation_flag = static_cast<bool>(std::stoi(key_values[5]));
+    joint_task->_saturation_velocity = redis_client.decodeEigenMatrixJSON(key_values[6]);
+
+    auto joint_dynamic_decoupling = key_values[7];
+    if (joint_dynamic_decoupling == "full")
+        joint_task->setDynamicDecouplingFull();
+    else if (joint_dynamic_decoupling == "inertia_saturation")
+        joint_task->setDynamicDecouplingInertiaSaturation();
+    else if (joint_dynamic_decoupling == "none")
+        joint_task->setDynamicDecouplingNone();
 
 #ifdef USING_OTG
-    joint_task->_use_interpolation_flag = static_cast<bool>(std::stoi(key_values.back()));
+    bool new_joint_interpolation_flag = static_cast<bool>(std::stoi(key_values.back()));
+    if (new_joint_interpolation_flag && !joint_task->_use_interpolation_flag)
+    {
+        joint_task->reInitializeTask();
+    }
+    joint_task->_use_interpolation_flag = new_joint_interpolation_flag;
 #endif
 }
 
@@ -195,15 +271,30 @@ void init_joint_task(
 {
     joint_task->_kp = 100.;
     joint_task->_kv = 20.;
+
+    auto kp_init = 100.0 * VectorXd::Ones(robot->dof());
+    auto kv_init = 20.0 * VectorXd::Ones(robot->dof());
+
+    joint_task->setNonIsotropicGains(
+        kp_init,
+        kv_init,
+        VectorXd::Zero(robot->dof())
+    );
+    joint_task->_use_isotropic_gains = true;
     joint_task->_use_velocity_saturation_flag = false;
+    joint_task->setDynamicDecouplingInertiaSaturation();
+
 #ifdef USING_OTG
     joint_task->_use_interpolation_flag = true;
 #endif
 
     redis_client.set(KP_JOINT_KEY, std::to_string(joint_task->_kp));
     redis_client.set(KV_JOINT_KEY, std::to_string(joint_task->_kv));
+    redis_client.setEigenMatrixJSON(KP_NON_ISOTROPIC_JOINT_KEY, kp_init);
+    redis_client.setEigenMatrixJSON(KV_NON_ISOTROPIC_JOINT_KEY, kv_init);
+    redis_client.set(USE_ISOTROPIC_JOINT_GAINS_KEY, "1");
     redis_client.set(USE_VEL_SAT_JOINT_KEY, "0");
-    redis_client.set(USE_DYN_DEC_JOINT_KEY, "0");
+    redis_client.set(DYN_DEC_JOINT_KEY, "inertia_saturation");
    
 #ifdef USING_OTG
     redis_client.set(JOINT_USE_INTERPOLATION, "1");
@@ -211,7 +302,6 @@ void init_joint_task(
 
     redis_client.setEigenMatrixJSON(DESIRED_JOINT_POS_KEY, robot->_q);
     redis_client.setEigenMatrixJSON(VEL_SAT_JOINT_KEY, joint_task->_saturation_velocity);
-    redis_client.setEigenMatrixJSON(DYN_DEC_JOINT_KEY, VectorXd::Zero(robot->dof())); // TODO - correct sizing
 }
 
 int main(int argc, char **argv) 
@@ -241,7 +331,9 @@ int main(int argc, char **argv)
     // prepare controller
     int dof = robot->dof();
     VectorXd command_torques = VectorXd::Zero(dof);
-    MatrixXd N_prec = MatrixXd::Identity(dof,dof);
+    VectorXd joint_task_torques = VectorXd::Zero(dof);
+    VectorXd posori_task_torques = VectorXd::Zero(dof);
+
     VectorXd coriolis = VectorXd::Zero(dof);
 
     const string link_name = "end-effector";
@@ -299,7 +391,7 @@ int main(int argc, char **argv)
                 joint_task->reInitializeTask();
                 redis_client.setEigenMatrixJSON(DESIRED_JOINT_POS_KEY, robot->_q); 
             }
-            else if (interfacePrimitive == PRIMITIVE_POSORI_TASK)
+            else if (interfacePrimitive == PRIMITIVE_POSORI_TASK || interfacePrimitive == PRIMITIVE_TRAJECTORY_TASK)
             {
                 posori_task->reInitializeTask();
                 redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, posori_task->_current_position);
@@ -316,14 +408,13 @@ int main(int argc, char **argv)
             joint_task->updateTaskModel(N_prec);
             read_joint_parameters(joint_task, redis_client);
             joint_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_JOINT_POS_KEY);
-            joint_task->computeTorques(command_torques);
+            joint_task->computeTorques(joint_task_torques);
+            command_torques = joint_task_torques + coriolis;
         }
 
         else if (interfacePrimitive == PRIMITIVE_POSORI_TASK || interfacePrimitive == PRIMITIVE_TRAJECTORY_TASK)
         {
             posori_task->updateTaskModel(N_prec);
-            N_prec = posori_task->_N;
-
             read_posori_parameters(posori_task, redis_client);
             posori_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_POS_KEY);
             posori_task->_desired_velocity = redis_client.getEigenMatrixJSON(DESIRED_VEL_KEY);
@@ -345,12 +436,16 @@ int main(int argc, char **argv)
             posori_task->_desired_angular_velocity = Vector3d::Zero();
 
             // compute torques
-            posori_task->computeTorques(command_torques);
+            posori_task->computeTorques(posori_task_torques);
+            command_torques = posori_task_torques + coriolis;
+        }
+        else if (interfacePrimitive == PRIMITIVE_FLOATING_TASK)
+        {
+            command_torques = VectorXd::Zero(robot->dof());
         }
         currentPrimitive = interfacePrimitive;
     
         // -------------------------------------------
-        command_torques = command_torques + coriolis;
         redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 
         // log current EE position and velocity to redis
