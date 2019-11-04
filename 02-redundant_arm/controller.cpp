@@ -80,6 +80,7 @@ const string PRIMITIVE_KEY = "sai2::examples::primitive";
 const string PRIMITIVE_JOINT_TASK = "primitive_joint_task";
 const string PRIMITIVE_POSORI_TASK = "primitive_posori_task";
 const string PRIMITIVE_TRAJECTORY_TASK = "primitive_trajectory_task";
+const string PRIMITIVE_FLOATING_TASK = "primitive_floating_task";
 
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
@@ -492,6 +493,10 @@ int main(int argc, char **argv)
             posori_task->computeTorques(posori_task_torques);
             joint_task->computeTorques(joint_task_torques);
             command_torques = posori_task_torques + joint_task_torques + coriolis;
+        }
+        else if (interfacePrimitive == PRIMITIVE_FLOATING_TASK)
+        {
+            command_torques = VectorXd::Zero(robot->dof());
         }
         currentPrimitive = interfacePrimitive;
     
