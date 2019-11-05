@@ -446,6 +446,9 @@ int main(int argc, char **argv)
             joint_task->updateTaskModel(N_prec);
 
             read_posori_parameters(posori_task, redis_client);
+            read_joint_parameters(joint_task, redis_client);
+
+            joint_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_JOINT_POS_KEY);
             posori_task->_desired_position = redis_client.getEigenMatrixJSON(DESIRED_POS_KEY);
             posori_task->_desired_velocity = redis_client.getEigenMatrixJSON(DESIRED_VEL_KEY);
             
