@@ -62,7 +62,7 @@ const string VEL_SAT_JOINT_KEY = "sai2::examples::joint_velocity_saturation";
 const string DYN_DEC_JOINT_KEY = "sai2::examples::joint_dynamic_decoupling";
 
 // robot file
-const string ROBOT_FILE = "resources/puma.urdf";
+const string ROBOT_FILE = "resources/puma_modified.urdf";
 
 // state-related keys
 const string PRIMITIVE_KEY = "sai2::examples::primitive";

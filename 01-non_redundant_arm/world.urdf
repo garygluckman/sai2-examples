@@ -5,7 +5,7 @@
 
 	<robot name="PUMA">
 		<!-- model node is required -->
-		<model dir="./resources" path="puma.urdf" name="Puma" />
+		<model dir="./resources" path="puma_modified.urdf" name="Puma" />
 		<!-- origin node is optional -->
 		<origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
 	</robot>

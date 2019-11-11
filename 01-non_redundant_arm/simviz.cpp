@@ -27,7 +27,7 @@ const string JOINT_VELOCITIES_KEY = "sai2::examples::sensors::dq";
 const string JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::fgc";
 
 const string world_file = "resources/world.urdf";
-const string robot_file = "resources/puma.urdf";
+const string robot_file = "resources/puma_modified.urdf";
 const string robot_name = "PUMA";
 
 const string camera_name = "camera";
