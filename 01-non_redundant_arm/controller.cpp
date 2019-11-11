@@ -11,65 +11,10 @@
 #include "tasks/PosOriTask.h"
 #include "tasks/JointTask.h"
 
+#include "keys.h"
 
 using namespace std;
 using namespace Eigen;
-
-
-// redis keys
-const string JOINT_ANGLES_KEY = "sai2::examples::sensors::q";
-const string JOINT_VELOCITIES_KEY = "sai2::examples::sensors::dq";
-const string JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::fgc";
-
-const string CURRENT_EE_POS_KEY = "sai2::examples::current_ee_pos";
-const string CURRENT_EE_VEL_KEY = "sai2::examples::current_ee_vel";
-
-// controller initialization
-const string CONTROL_STATE_KEY = "sai2::examples::control_state";
-const string CONTROL_STATE_INITIALIZING = "initializing";
-const string CONTROL_STATE_INITIALIZED = "initialized";
-const string CONTROL_STATE_READY = "ready";
-
-// posori task parameters
-const string DESIRED_POS_KEY = "sai2::examples::desired_position";
-const string DESIRED_ORI_KEY = "sai2::examples::desired_orientation";
-const string DESIRED_VEL_KEY = "sai2::examples::desired_velocity";
-const string KP_POS_KEY = "sai2::examples::kp_pos";
-const string KV_POS_KEY = "sai2::examples::kv_pos";
-const string KI_POS_KEY = "sai2::examples::ki_pos";
-const string KP_ORI_KEY = "sai2::examples::kp_ori";
-const string KV_ORI_KEY = "sai2::examples::kv_ori";
-const string KI_ORI_KEY = "sai2::examples::ki_ori";
-const string KP_NONISOTROPIC_POS_KEY = "sai2::examples::kp_nonisotropic_pos";
-const string KV_NONISOTROPIC_POS_KEY = "sai2::examples::kv_nonisotropic_pos";
-const string KI_NONISOTROPIC_POS_KEY = "sai2::examples::ki_nonisotropic_pos";
-const string USE_ISOTROPIC_POS_GAINS_KEY = "sai2::examples::use_isotropic_pos_gains";
-const string POSORI_USE_INTERPOLATION = "sai2::examples::posori_use_interpolation";
-const string USE_VEL_SAT_POSORI_KEY = "sai2::examples::use_posori_velocity_saturation";
-const string VEL_SAT_POSORI_KEY = "sai2::examples::posori_velocity_saturation";
-const string DYN_DEC_POSORI_KEY = "sai2::examples::posori_dynamic_decoupling";
-
-// joint task parameters
-const string DESIRED_JOINT_POS_KEY = "sai2::examples::desired_joint_position";
-const string KP_JOINT_KEY = "sai2::examples::kp_joint";
-const string KV_JOINT_KEY = "sai2::examples::kv_joint";
-const string KP_NON_ISOTROPIC_JOINT_KEY = "sai2::examples::kp_nonisotropic_joint";
-const string KV_NON_ISOTROPIC_JOINT_KEY = "sai2::examples::kv_nonisotropic_joint";
-const string USE_ISOTROPIC_JOINT_GAINS_KEY = "sai2::examples::use_isotropic_joint_gains";
-const string JOINT_USE_INTERPOLATION = "sai2::examples::joint_use_interpolation";
-const string USE_VEL_SAT_JOINT_KEY = "sai2::examples::use_joint_velocity_saturation";
-const string VEL_SAT_JOINT_KEY = "sai2::examples::joint_velocity_saturation";
-const string DYN_DEC_JOINT_KEY = "sai2::examples::joint_dynamic_decoupling";
-
-// robot file
-const string ROBOT_FILE = "resources/puma_modified.urdf";
-
-// state-related keys
-const string PRIMITIVE_KEY = "sai2::examples::primitive";
-const string PRIMITIVE_JOINT_TASK = "primitive_joint_task";
-const string PRIMITIVE_POSORI_TASK = "primitive_posori_task";
-const string PRIMITIVE_TRAJECTORY_TASK = "primitive_trajectory_task";
-const string PRIMITIVE_FLOATING_TASK = "primitive_floating_task";
 
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
@@ -495,5 +440,12 @@ int main(int argc, char **argv)
     std::cout << "Control Loop run time  : " << end_time << " seconds" << std::endl;
     std::cout << "Control Loop updates   : " << timer.elapsedCycles() << std::endl;
     std::cout << "Control Loop frequency : " << timer.elapsedCycles()/end_time << "Hz" << std::endl;
+
+    if (robot)
+        delete robot;
+    if (joint_task)
+        delete joint_task;
+    if (posori_task)
+        delete posori_task;
     return 0;
 }
