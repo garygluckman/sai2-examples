@@ -62,8 +62,9 @@ void updateModelThread(vector<shared_ptr<Sai2Model::Sai2Model>> robots,
 		shared_ptr<Sai2Primitives::TwoHandTwoRobotsTask> two_hand_task);
 
 // state machine
-#define INDEPENDANT_ARMS               0
-#define COORDINATED_ARMS               1
+#define INDEPENDANT_ARMS                       0
+#define COORDINATED_ARMS                       1
+#define COORDINATED_ARMS_INTERNAL_FORCE        2
 
 int state = INDEPENDANT_ARMS;
 unsigned long long controller_counter = 0;
@@ -163,7 +164,7 @@ int main() {
 	two_hand_task = make_shared<Sai2Primitives::TwoHandTwoRobotsTask>(robots[0].get(), robots[1].get(), 
 			posori_tasks[0]->_link_name, posori_tasks[1]->_link_name,
 			posori_tasks[0]->_control_frame, posori_tasks[1]->_control_frame);
-	two_hand_task->_internal_force_control_flag = true;
+	// two_hand_task->_internal_force_control_flag = false;
 
 	// object properties
 	double object_mass = 1.0;
@@ -202,6 +203,8 @@ int main() {
 	double dt = 0;
 	bool fTimerDidSleep = true;
 	double start_time = timer.elapsedTime(); //secs
+
+	double initial_time = 0;
 
 	runloop = true;
 	while (runloop) {
@@ -252,6 +255,8 @@ int main() {
 
 				// set desired internal tension for the object not to slip
 				// two_hand_task->_desired_internal_tension = -1.0;
+				two_hand_task->_desired_internal_separation -= 0.15;
+				two_hand_task->_desired_internal_angles(0) = 0.8;
 
 				// set the object properties for the two hand task
 				// Affine3d T_world_com = Affine3d::Identity();
@@ -260,17 +265,21 @@ int main() {
 				// two_hand_task->setObjectMassPropertiesAndInitialInertialFrameLocation(object_mass, T_world_com, object_inertia);
 
 				// change the desired position and orientation of the object
-				// two_hand_task->_desired_object_position(2) += 0.30;
+				// two_hand_task->_desired_object_position(2) += 0.20;
+				// two_hand_task->_desired_object_orientation = AngleAxisd(M_PI* 30.0/180.0, Vector3d::UnitZ()).toRotationMatrix() * two_hand_task->_desired_object_orientation;
 				// two_hand_task->_desired_object_orientation = AngleAxisd(-M_PI* 10.0/180.0, Vector3d::UnitY()).toRotationMatrix() * two_hand_task->_desired_object_orientation;
 				// two_hand_task->_desired_object_orientation = AngleAxisd(M_PI* 5.0/180.0, Vector3d::UnitX()).toRotationMatrix() * two_hand_task->_desired_object_orientation;
 
 				// change the state
 				state = COORDINATED_ARMS;
+
+				// record initial time
+				initial_time = current_time;
 			}
 
 		}
 
-		// move the box to successive locations
+		// move the internal quantities
 		else if(state == COORDINATED_ARMS)
 		{
 			// update the sensed forces
@@ -286,8 +295,50 @@ int main() {
 
 				command_torques[i] = two_hand_task_torques[i] + joint_task_torques[i];
 			}
+
+			// wait for a certain time
+			if(current_time - initial_time > 2.0)
+			{
+				// set the object properties for the two hand task
+				Affine3d T_world_com = Affine3d::Identity();
+				T_world_com.linear() = two_hand_task->_current_object_orientation;
+				T_world_com.translation() = two_hand_task->_current_object_position;
+				two_hand_task->setObjectMassPropertiesAndInitialInertialFrameLocation(object_mass, T_world_com, object_inertia);
+
+				// set the internal controller to force
+				two_hand_task->_internal_force_control_flag = true;
+				two_hand_task->_desired_internal_tension = -25.0;
+
+				// change the desired position and orientation of the object
+				two_hand_task->_desired_object_position(2) += 0.20;
+				two_hand_task->_desired_object_orientation = AngleAxisd(M_PI* 30.0/180.0, Vector3d::UnitZ()).toRotationMatrix() * two_hand_task->_desired_object_orientation;
+				two_hand_task->_desired_object_orientation = AngleAxisd(-M_PI* 10.0/180.0, Vector3d::UnitY()).toRotationMatrix() * two_hand_task->_desired_object_orientation;
+				two_hand_task->_desired_object_orientation = AngleAxisd(M_PI* 5.0/180.0, Vector3d::UnitX()).toRotationMatrix() * two_hand_task->_desired_object_orientation;
+
+				// change the state
+				state = COORDINATED_ARMS_INTERNAL_FORCE;
+
+			}
 		}
 
+		// move the box to successive locations
+		else if(state == COORDINATED_ARMS_INTERNAL_FORCE)
+		{
+			// update the sensed forces
+			two_hand_task->updateSensedForcesAndMoments(sensed_force_moment_1.head(3), sensed_force_moment_1.tail(3),
+						sensed_force_moment_2.head(3), sensed_force_moment_2.tail(3));
+
+			// compute the torques
+			two_hand_task->computeTorques(two_hand_task_torques[0], two_hand_task_torques[1]);
+			
+			for(int i=0 ; i<n_robots ; i++)
+			{
+				joint_tasks[i]->computeTorques(joint_task_torques[i]);
+
+				command_torques[i] = two_hand_task_torques[i] + joint_task_torques[i];
+			}
+
+		}
 
 		else
 		{
@@ -369,7 +420,7 @@ void updateModelThread(vector<shared_ptr<Sai2Model::Sai2Model>> robots,
 			}
 		}
 
-		else if(state == COORDINATED_ARMS)
+		else if(state == COORDINATED_ARMS || state == COORDINATED_ARMS_INTERNAL_FORCE)
 		{
 			for(int i=0 ; i<n_robots ; i++)
 			{
