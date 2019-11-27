@@ -280,6 +280,8 @@ int main(int argc, char **argv)
 
     // initialization complete
     redis_client.set(CONTROL_STATE_KEY, CONTROL_STATE_INITIALIZED);
+
+    redis_client.set(UI_FORCE_ENABLED_KEY, "0");
     
     MatrixXd N_prec;
 
@@ -322,6 +324,7 @@ int main(int argc, char **argv)
                 joint_task->_current_position = robot->_q;
                 joint_task->reInitializeTask();
                 redis_client.setEigenMatrixJSON(DESIRED_JOINT_POS_KEY, robot->_q); 
+                redis_client.set(UI_FORCE_ENABLED_KEY, "0");
             }
             else if (currentPrimitive == PRIMITIVE_POSORI_TASK || currentPrimitive == PRIMITIVE_TRAJECTORY_TASK)
             {
@@ -331,6 +334,11 @@ int main(int argc, char **argv)
                 // ZYX euler angles, but stored as XYZ
                 Vector3d angles = posori_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
                 redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, angles);
+                redis_client.set(UI_FORCE_ENABLED_KEY, "0");
+            }
+            else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+            {
+                redis_client.set(UI_FORCE_ENABLED_KEY, "1");
             }
         }
 

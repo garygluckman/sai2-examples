@@ -88,6 +88,29 @@
       width: 48%;
     }
 
+    .posori-grid {
+      display: grid;
+      justify-content: space-between;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto;
+      grid-template-areas:
+        "posori gains"
+        "nullspace nullspace";
+      column-gap: 5%;
+    }
+
+    .posori-grid .posori {
+      grid-area: posori;
+    }
+
+    .posori-grid .gains {
+      grid-area: gains;
+    }
+
+    .posori-grid .nullspace {
+      grid-area: nullspace;
+    }
+
     .center {
       text-align: center;
     }
@@ -119,25 +142,23 @@
               <sai2-interfaces-toggle-group-enabled>
                 <sai2-interfaces-slider key="sai2::examples::kp_joint" display="Kp Joint" min="0" max="200" step="0.01">
                 </sai2-interfaces-slider>
-                <sai2-interfaces-toggle-group name="Use Unsafe Gains">
-                  <sai2-interfaces-toggle-group-enabled>
-                    <sai2-interfaces-slider key="sai2::examples::kv_joint" display="Kv Joint" min="-5" max="35"
-                      step="0.01">
-                    </sai2-interfaces-slider>
-                  </sai2-interfaces-toggle-group-enabled>
-                  <sai2-interfaces-toggle-group-disabled>
-                    <sai2-interfaces-slider key="sai2::examples::kv_joint" display="Kv Joint" min="0" max="35"
-                      step="0.01">
-                    </sai2-interfaces-slider>
-                  </sai2-interfaces-toggle-group-disabled>
-                </sai2-interfaces-toggle-group>
+                <sai2-interfaces-slider key="sai2::examples::kv_joint" display="Kv Joint" min="0" max="35" step="0.01">
+                </sai2-interfaces-slider>
               </sai2-interfaces-toggle-group-enabled>
               <sai2-interfaces-toggle-group-disabled>
                 <sai2-interfaces-slider key="sai2::examples::kp_nonisotropic_joint" display="Kp Joint" min="0" max="200"
                   step="0.01">
                 </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::kv_nonisotropic_joint" display="Kv Joint" min="0" max="35"
-                  step="0.01">
+                <sai2-interfaces-toggle-group name="Use Unsafe Gains">
+                  <sai2-interfaces-toggle-group-enabled>
+                    <sai2-interfaces-slider key="sai2::examples::kv_nonisotropic_joint" display="Kv Joint" min="-5" max="35"
+                      step="0.01">
+                  </sai2-interfaces-toggle-group-enabled>
+                  <sai2-interfaces-toggle-group-disabled>
+                    <sai2-interfaces-slider key="sai2::examples::kv_nonisotropic_joint" display="Kv Joint" min="0" max="35"
+                      step="0.01">
+                  </sai2-interfaces-toggle-group-disabled>
+                </sai2-interfaces-toggle-group>
                 </sai2-interfaces-slider>
               </sai2-interfaces-toggle-group-disabled>
             </sai2-interfaces-toggle-group>
@@ -158,8 +179,8 @@
           </div>
         </sai2-interfaces-select-option>
 
-        <sai2-interfaces-select-option name="Posori Task" key="primitive_posori_task" class="grid-half module">
-          <div class="col center">
+        <sai2-interfaces-select-option name="Posori Task" key="primitive_posori_task" class="posori-grid module">
+          <div class="posori center">
             <h2>Desired Position</h2>
             <sai2-interfaces-slider key="sai2::examples::desired_position" display='["X", "Y", "Z"]'
               min="[-0.5,-0.5,0.3]" max="[0.5,0.5,0.8]" step="0.01">
@@ -168,57 +189,17 @@
             <sai2-interfaces-slider key="sai2::examples::desired_orientation" display='["X (γ)", "Y (β)", "Z (α)"]'
               min="[-1.5,1.5,1.5]" max="[1.5,5.0,5.0]" step="0.01">
             </sai2-interfaces-slider>
-            <h2>Nullspace Control</h2>
-            <sai2-interfaces-slider key="sai2::examples::desired_joint_position"
-              display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6", "Joint 7"]'
-              min="[-2.89, -1.76, -2.89, -3.07, -2.89, -0.01, -2.89]" max="[2.89, 1.76, 2.89, -0.07, 2.89, 3.75, 2.89]"
-              step="0.01">
-            </sai2-interfaces-slider>
-            <sai2-interfaces-toggle-group key="sai2::examples::use_isotropic_joint_gains" name="Use Isotropic Gains">
-              <sai2-interfaces-toggle-group-enabled>
-                <sai2-interfaces-slider key="sai2::examples::kp_joint" display="Kp Joint" min="0" max="200" step="0.01">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-toggle-group name="Use Unsafe Gains">
-                  <sai2-interfaces-toggle-group-enabled>
-                    <sai2-interfaces-slider key="sai2::examples::kv_joint" display="Kv Joint" min="-5" max="35"
-                      step="0.01">
-                    </sai2-interfaces-slider>
-                  </sai2-interfaces-toggle-group-enabled>
-                  <sai2-interfaces-toggle-group-disabled>
-                    <sai2-interfaces-slider key="sai2::examples::kv_joint" display="Kv Joint" min="0" max="35"
-                      step="0.01">
-                    </sai2-interfaces-slider>
-                  </sai2-interfaces-toggle-group-disabled>
-                </sai2-interfaces-toggle-group>
-              </sai2-interfaces-toggle-group-enabled>
-              <sai2-interfaces-toggle-group-disabled>
-                <sai2-interfaces-slider key="sai2::examples::kp_nonisotropic_joint" display="Kp Joint" min="0" max="200"
-                  step="0.01">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::kv_nonisotropic_joint" display="Kv Joint" min="0" max="35"
-                  step="0.01">
-                </sai2-interfaces-slider>
-              </sai2-interfaces-toggle-group-disabled>
-            </sai2-interfaces-toggle-group>
           </div>
-          <div class="col center">
+
+          <div class="gains center">
             <h2>Gains</h2>
 
             <sai2-interfaces-toggle-group key="sai2::examples::use_isotropic_pos_gains" name="Use Isotropic Gains">
               <sai2-interfaces-toggle-group-enabled>
                 <sai2-interfaces-slider key="sai2::examples::kp_pos" display="Kp Pos" min="0" max="400" step="0.01">
                 </sai2-interfaces-slider>
-                <sai2-interfaces-toggle-group name="Use Unsafe Gains">
-                  <sai2-interfaces-toggle-group-enabled>
-                    <sai2-interfaces-slider key="sai2::examples::kv_pos" display="Kv Pos" min="-5" max="100"
-                      step="0.01">
-                    </sai2-interfaces-slider>
-                  </sai2-interfaces-toggle-group-enabled>
-                  <sai2-interfaces-toggle-group-disabled>
-                    <sai2-interfaces-slider key="sai2::examples::kv_pos" display="Kv Pos" min="0" max="100" step="0.01">
-                    </sai2-interfaces-slider>
-                  </sai2-interfaces-toggle-group-disabled>
-                </sai2-interfaces-toggle-group>
+                <sai2-interfaces-slider key="sai2::examples::kv_pos" display="Kv Pos" min="0" max="100" step="0.01">
+                </sai2-interfaces-slider>
                 <sai2-interfaces-slider key="sai2::examples::ki_pos" display="Ki Pos" min="0" max="100" step="0.01">
                 </sai2-interfaces-slider>
               </sai2-interfaces-toggle-group-enabled>
@@ -263,6 +244,28 @@
               <option value="inertia_saturation">Inertia Saturation</option>
               <option value="none">None</option>
             </sai2-interfaces-enum>
+          </div>
+
+          <div class="nullspace">
+            <sai2-interfaces-toggle-group name="Show Nullspace">
+              <sai2-interfaces-toggle-group-enabled class="grid-half">
+                <div class="col center">
+                  <h2>Nullspace Joint Control</h2>
+                  <sai2-interfaces-slider key="sai2::examples::desired_joint_position"
+                    display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6", "Joint 7"]'
+                    min="[-2.89, -1.76, -2.89, -3.07, -2.89, -0.01, -2.89]" max="[2.89, 1.76, 2.89, -0.07, 2.89, 3.75, 2.89]"
+                    step="0.01">
+                  </sai2-interfaces-slider>
+                </div>
+                <div class="col center">
+                  <h2>Nullspace Gains</h2>
+                  <sai2-interfaces-slider key="sai2::examples::kp_joint" display="Kp Joint" min="0" max="200" step="0.01">
+                  </sai2-interfaces-slider>
+                  <sai2-interfaces-slider key="sai2::examples::kv_joint" display="Kv Joint" min="0" max="35" step="0.01">
+                  </sai2-interfaces-slider>
+                </div>
+              </sai2-interfaces-toggle-group-enabled>
+            </sai2-interfaces-toggle-group>
           </div>
         </sai2-interfaces-select-option>
 

@@ -9,6 +9,11 @@ constexpr const char *JOINT_TORQUES_COMMANDED_KEY = "sai2::examples::actuators::
 constexpr const char *CURRENT_EE_POS_KEY = "sai2::examples::current_ee_pos";
 constexpr const char *CURRENT_EE_VEL_KEY = "sai2::examples::current_ee_vel";
 
+// force keys
+constexpr const char *UI_FORCE_ENABLED_KEY = "sai2::examples::ui_force_enabled";
+constexpr const char *UI_FORCE_KEY = "sai2::examples::ui_force";
+constexpr const char *UI_FORCE_COMMAND_TORQUES_KEY = "sai2::examples::ui_force_command_torques";
+
 // controller initialization
 constexpr const char *CONTROL_STATE_KEY = "sai2::examples::control_state";
 constexpr const char *CONTROL_STATE_INITIALIZING = "initializing";

@@ -96,13 +96,13 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
         joint_task->reInitializeTask();
 
     joint_task->_use_interpolation_flag = bool(joint_use_interpolation);
-    joint_task->_use_isotropic_gains = bool(joint_use_isotropic_gains);
     joint_task->_use_velocity_saturation_flag = bool(joint_use_velocity_saturation);
     joint_task->setNonIsotropicGains(
         joint_kp_nonisotropic,
         joint_kv_nonisotropic,
         VectorXd::Zero(joint_task->_robot->dof())
     );
+    joint_task->_use_isotropic_gains = bool(joint_use_isotropic_gains);
 
     if (joint_dynamic_decoupling_mode == "full")
         joint_task->setDynamicDecouplingFull();
@@ -358,6 +358,7 @@ int main(int argc, char **argv)
         }
         else if (currentPrimitive == PRIMITIVE_POSORI_TASK || currentPrimitive == PRIMITIVE_TRAJECTORY_TASK)
         {
+            joint_task->_use_isotropic_gains = true;
             posori_task->updateTaskModel(N_prec);
             N_prec = posori_task->_N;
             joint_task->updateTaskModel(N_prec);

@@ -7,6 +7,7 @@
 #include "Sai2Model.h"
 #include "Sai2Graphics.h"
 #include "Sai2Simulation.h"
+#include "uiforce/UIForceWidget.h"
 #include <dynamics3d.h>
 
 #include "redis/RedisClient.h"
@@ -33,7 +34,7 @@ void sighandler(int)
 }
 
 // simulation and control loop
-void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim);
+void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim, UIForceWidget *ui_force_widget);
 
 // initialize window manager
 GLFWwindow *glfwInitialize();
@@ -55,6 +56,9 @@ bool fTransYn = false;
 bool fTransZp = false;
 bool fTransZn = false;
 bool fRotPanTilt = false;
+
+double mouseClickXPos = 0;
+double mouseClickYPos = 0;
 
 int main(int argc, char **argv)
 {
@@ -92,9 +96,12 @@ int main(int argc, char **argv)
 	glfwSetKeyCallback(window, keySelect);
 	glfwSetMouseButtonCallback(window, mouseClick);
 
+	// init click force widget 
+	auto ui_force_widget = new UIForceWidget(robot_name, robot, graphics);
+
 	// start the simulation thread first
 	fSimulationRunning = true;
-	std::thread sim_thread(simulation, robot, sim);
+	std::thread sim_thread(simulation, robot, sim, ui_force_widget);
 
 	// while window is open:
 	while (!glfwWindowShouldClose(window))
@@ -109,6 +116,9 @@ int main(int argc, char **argv)
 
 		// poll for events
 		glfwPollEvents();
+
+		// update force widget interaction parameters
+		ui_force_widget->setInteractionParams(camera_name, mouseClickXPos, mouseClickYPos, width, height);
 
 		// move scene camera as required
 		// graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
@@ -189,9 +199,8 @@ int main(int argc, char **argv)
 }
 
 //------------------------------------------------------------------------------
-void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim)
+void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim, UIForceWidget *ui_force_widget)
 {
-
 	// prepare variables
 	int dof = robot->dof();
 	VectorXd command_torques = VectorXd::Zero(dof);
@@ -204,14 +213,45 @@ void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim)
 	double last_time = timer.elapsedTime(); //secs
 	bool fTimerDidSleep = true;
 
+	// ui force values
+	int enable_ui_force = 0;
+
+	Eigen::Vector3d ui_force;
+	ui_force.setZero();
+
+	Eigen::VectorXd ui_force_command_torques;
+	ui_force_command_torques.setZero();
+
+	// initialize redis write & read keys
+	redis_client.addEigenToWrite(JOINT_ANGLES_KEY, robot->_q);
+	redis_client.addEigenToWrite(JOINT_VELOCITIES_KEY, robot->_dq);
+	redis_client.addEigenToWrite(UI_FORCE_KEY, ui_force);
+	redis_client.addEigenToWrite(UI_FORCE_COMMAND_TORQUES_KEY, ui_force_command_torques);
+
+	redis_client.addEigenToRead(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+	redis_client.addIntToRead(UI_FORCE_ENABLED_KEY, enable_ui_force);
+
 	fSimulationRunning = true;
 	while (fSimulationRunning)
 	{
 		fTimerDidSleep = timer.waitForNextLoop();
+		
+		redis_client.readAllSetupValues();
 
-		// read command torques from redis and apply to simulation
-		command_torques = redis_client.getEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEY);
-		sim->setJointTorques(robot_name, command_torques);
+		if (enable_ui_force)
+		{
+			ui_force_widget->setEnable(true);
+			ui_force_widget->getUIForce(ui_force);
+			ui_force_widget->getUIJointTorques(ui_force_command_torques);
+			sim->setJointTorques(robot_name, command_torques + ui_force_command_torques);
+		}
+		else
+		{
+			ui_force_widget->setEnable(false);
+			ui_force.setZero();
+			ui_force_command_torques.setZero();
+			sim->setJointTorques(robot_name, command_torques);
+		}
 
 		// integrate forward
 		sim->integrate(0.001);
@@ -221,8 +261,7 @@ void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim)
 		sim->getJointVelocities(robot_name, robot->_dq);
 		robot->updateKinematics();
 
-		redis_client.setEigenMatrixJSON(JOINT_ANGLES_KEY, robot->_q);
-		redis_client.setEigenMatrixJSON(JOINT_VELOCITIES_KEY, robot->_dq);
+		redis_client.writeAllSetupValues();
 	}
 
 	double end_time = timer.elapsedTime();
@@ -318,16 +357,10 @@ void mouseClick(GLFWwindow *window, int button, int action, int mods)
 	// left click pans and tilts
 	case GLFW_MOUSE_BUTTON_LEFT:
 		fRotPanTilt = set;
-		// NOTE: the code below is recommended but doesn't work well
-		// if (fRotPanTilt) {
-		// 	// lock cursor
-		// 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-		// } else {
-		// 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-		// }
 		break;
 	// if right click: don't handle. this is for menu selection
 	case GLFW_MOUSE_BUTTON_RIGHT:
+		glfwGetCursorPos(window, &mouseClickXPos, &mouseClickYPos);
 		//TODO: menu
 		break;
 	// if middle click: don't handle. doesn't work well on laptops
