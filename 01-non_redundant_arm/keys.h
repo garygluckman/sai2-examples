@@ -10,7 +10,6 @@ constexpr const char *CURRENT_EE_POS_KEY = "sai2::examples::current_ee_pos";
 constexpr const char *CURRENT_EE_VEL_KEY = "sai2::examples::current_ee_vel";
 
 // force keys
-constexpr const char *UI_FORCE_ENABLED_KEY = "sai2::examples::ui_force_enabled";
 constexpr const char *UI_FORCE_KEY = "sai2::examples::ui_force";
 constexpr const char *UI_FORCE_COMMAND_TORQUES_KEY = "sai2::examples::ui_force_command_torques";
 
