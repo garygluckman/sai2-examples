@@ -16,6 +16,10 @@
 using namespace std;
 using namespace Eigen;
 
+////////////////////// CONSTANTS //////////////////////
+constexpr int INIT_WRITE_CALLBACK_ID = 0;
+constexpr int READ_CALLBACK_ID = 0;
+
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
 string currentPrimitive = PRIMITIVE_JOINT_TASK;
@@ -59,28 +63,28 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     joint_task->setDynamicDecouplingInertiaSaturation();
     
     // update values when we read all parameters on a new controller cycle
-    redis_client.addDoubleToRead(KP_JOINT_KEY, joint_task->_kp);
-    redis_client.addDoubleToRead(KV_JOINT_KEY, joint_task->_kv);
-    redis_client.addEigenToRead(KP_NON_ISOTROPIC_JOINT_KEY, joint_kp_nonisotropic);
-    redis_client.addEigenToRead(KV_NON_ISOTROPIC_JOINT_KEY, joint_kv_nonisotropic);
-    redis_client.addIntToRead(JOINT_USE_INTERPOLATION, joint_use_interpolation);
-    redis_client.addIntToRead(USE_ISOTROPIC_JOINT_GAINS_KEY, joint_use_isotropic_gains);
-    redis_client.addIntToRead(USE_VEL_SAT_JOINT_KEY, joint_use_velocity_saturation);
-    redis_client.addStringToRead(DYN_DEC_JOINT_KEY, joint_dynamic_decoupling_mode);
-    redis_client.addEigenToRead(DESIRED_JOINT_POS_KEY, joint_task->_desired_position);
-    redis_client.addEigenToRead(VEL_SAT_JOINT_KEY, joint_task->_saturation_velocity);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KP_JOINT_KEY, joint_task->_kp);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KV_JOINT_KEY, joint_task->_kv);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, KP_NON_ISOTROPIC_JOINT_KEY, joint_kp_nonisotropic);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, KV_NON_ISOTROPIC_JOINT_KEY, joint_kv_nonisotropic);
+    redis_client.addIntToReadCallback(READ_CALLBACK_ID, JOINT_USE_INTERPOLATION, joint_use_interpolation);
+    redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_ISOTROPIC_JOINT_GAINS_KEY, joint_use_isotropic_gains);
+    redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_VEL_SAT_JOINT_KEY, joint_use_velocity_saturation);
+    redis_client.addStringToReadCallback(READ_CALLBACK_ID, DYN_DEC_JOINT_KEY, joint_dynamic_decoupling_mode);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_JOINT_POS_KEY, joint_task->_desired_position);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, VEL_SAT_JOINT_KEY, joint_task->_saturation_velocity);
 
     // update redis for initial conditions and any controller-induced changes
-    redis_client.addDoubleToWrite(KP_JOINT_KEY, joint_task->_kp);
-    redis_client.addDoubleToWrite(KV_JOINT_KEY, joint_task->_kv);
-    redis_client.addEigenToWrite(KP_NON_ISOTROPIC_JOINT_KEY, joint_kp_nonisotropic);
-    redis_client.addEigenToWrite(KV_NON_ISOTROPIC_JOINT_KEY, joint_kv_nonisotropic);
-    redis_client.addIntToWrite(JOINT_USE_INTERPOLATION, joint_use_interpolation);
-    redis_client.addIntToWrite(USE_ISOTROPIC_JOINT_GAINS_KEY, joint_use_isotropic_gains);
-    redis_client.addIntToWrite(USE_VEL_SAT_JOINT_KEY, joint_use_velocity_saturation);
-    redis_client.addStringToWrite(DYN_DEC_JOINT_KEY, joint_dynamic_decoupling_mode);
-    redis_client.addEigenToWrite(DESIRED_JOINT_POS_KEY, joint_task->_desired_position);
-    redis_client.addEigenToWrite(VEL_SAT_JOINT_KEY, joint_task->_saturation_velocity);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KP_JOINT_KEY, joint_task->_kp);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KV_JOINT_KEY, joint_task->_kv);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, KP_NON_ISOTROPIC_JOINT_KEY, joint_kp_nonisotropic);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, KV_NON_ISOTROPIC_JOINT_KEY, joint_kv_nonisotropic);
+    redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, JOINT_USE_INTERPOLATION, joint_use_interpolation);
+    redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, USE_ISOTROPIC_JOINT_GAINS_KEY, joint_use_isotropic_gains);
+    redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, USE_VEL_SAT_JOINT_KEY, joint_use_velocity_saturation);
+    redis_client.addStringToWriteCallback(INIT_WRITE_CALLBACK_ID, DYN_DEC_JOINT_KEY, joint_dynamic_decoupling_mode);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_JOINT_POS_KEY, joint_task->_desired_position);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, VEL_SAT_JOINT_KEY, joint_task->_saturation_velocity);
 }
 
 void update_joint_task(Sai2Primitives::JointTask *joint_task)
@@ -160,42 +164,42 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_task->setDynamicDecouplingInertiaSaturation();
 
     // prepare redis callback
-    redis_client.addIntToRead(POSORI_USE_INTERPOLATION, posori_use_interpolation);
-    redis_client.addIntToRead(USE_VEL_SAT_POSORI_KEY, posori_use_velocity_saturation);
-    redis_client.addEigenToRead(VEL_SAT_POSORI_KEY, posori_velocity_saturation);
-    redis_client.addDoubleToRead(KP_POS_KEY, posori_task->_kp_pos);
-    redis_client.addDoubleToRead(KV_POS_KEY, posori_task->_kv_pos);
-    redis_client.addDoubleToRead(KI_POS_KEY, posori_task->_ki_pos);
-    redis_client.addDoubleToRead(KP_ORI_KEY, posori_task->_kp_ori);
-    redis_client.addDoubleToRead(KV_ORI_KEY, posori_task->_kv_ori);
-    redis_client.addDoubleToRead(KI_ORI_KEY, posori_task->_ki_ori);
-    redis_client.addEigenToRead(KP_NONISOTROPIC_POS_KEY, posori_kp_nonisotropic);
-    redis_client.addEigenToRead(KV_NONISOTROPIC_POS_KEY, posori_kv_nonisotropic);
-    redis_client.addEigenToRead(KI_NONISOTROPIC_POS_KEY, posori_ki_nonisotropic);
-    redis_client.addIntToRead(USE_ISOTROPIC_POS_GAINS_KEY, posori_use_isotropic_gains);
-    redis_client.addStringToRead(DYN_DEC_POSORI_KEY, posori_dynamic_decoupling_mode);
-    redis_client.addEigenToRead(DESIRED_POS_KEY, posori_task->_desired_position); 
-    redis_client.addEigenToRead(DESIRED_ORI_KEY, posori_euler_angles);
-    redis_client.addEigenToRead(DESIRED_VEL_KEY, posori_task->_desired_velocity);
+    redis_client.addIntToReadCallback(READ_CALLBACK_ID, POSORI_USE_INTERPOLATION, posori_use_interpolation);
+    redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_VEL_SAT_POSORI_KEY, posori_use_velocity_saturation);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, VEL_SAT_POSORI_KEY, posori_velocity_saturation);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KP_POS_KEY, posori_task->_kp_pos);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KV_POS_KEY, posori_task->_kv_pos);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KI_POS_KEY, posori_task->_ki_pos);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KP_ORI_KEY, posori_task->_kp_ori);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KV_ORI_KEY, posori_task->_kv_ori);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KI_ORI_KEY, posori_task->_ki_ori);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, KP_NONISOTROPIC_POS_KEY, posori_kp_nonisotropic);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, KV_NONISOTROPIC_POS_KEY, posori_kv_nonisotropic);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, KI_NONISOTROPIC_POS_KEY, posori_ki_nonisotropic);
+    redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_ISOTROPIC_POS_GAINS_KEY, posori_use_isotropic_gains);
+    redis_client.addStringToReadCallback(READ_CALLBACK_ID, DYN_DEC_POSORI_KEY, posori_dynamic_decoupling_mode);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position); 
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_ORI_KEY, posori_euler_angles);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 
     // update redis for initial conditions and any controller-induced changes
-    redis_client.addIntToWrite(POSORI_USE_INTERPOLATION, posori_use_interpolation);
-    redis_client.addIntToWrite(USE_VEL_SAT_POSORI_KEY, posori_use_velocity_saturation);
-    redis_client.addEigenToWrite(VEL_SAT_POSORI_KEY, posori_velocity_saturation);
-    redis_client.addDoubleToWrite(KP_POS_KEY, posori_task->_kp_pos);
-    redis_client.addDoubleToWrite(KV_POS_KEY, posori_task->_kv_pos);
-    redis_client.addDoubleToWrite(KI_POS_KEY, posori_task->_ki_pos);
-    redis_client.addDoubleToWrite(KP_ORI_KEY, posori_task->_kp_ori);
-    redis_client.addDoubleToWrite(KV_ORI_KEY, posori_task->_kv_ori);
-    redis_client.addDoubleToWrite(KI_ORI_KEY, posori_task->_ki_ori);
-    redis_client.addEigenToWrite(KP_NONISOTROPIC_POS_KEY, posori_kp_nonisotropic);
-    redis_client.addEigenToWrite(KV_NONISOTROPIC_POS_KEY, posori_kv_nonisotropic);
-    redis_client.addEigenToWrite(KI_NONISOTROPIC_POS_KEY, posori_ki_nonisotropic);
-    redis_client.addIntToWrite(USE_ISOTROPIC_POS_GAINS_KEY, posori_use_isotropic_gains);
-    redis_client.addStringToWrite(DYN_DEC_POSORI_KEY, posori_dynamic_decoupling_mode);
-    redis_client.addEigenToWrite(DESIRED_POS_KEY, posori_task->_desired_position); 
-    redis_client.addEigenToWrite(DESIRED_ORI_KEY, posori_euler_angles);
-    redis_client.addEigenToWrite(DESIRED_VEL_KEY, posori_task->_desired_velocity);
+    redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, POSORI_USE_INTERPOLATION, posori_use_interpolation);
+    redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, USE_VEL_SAT_POSORI_KEY, posori_use_velocity_saturation);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, VEL_SAT_POSORI_KEY, posori_velocity_saturation);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KP_POS_KEY, posori_task->_kp_pos);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KV_POS_KEY, posori_task->_kv_pos);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KI_POS_KEY, posori_task->_ki_pos);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KP_ORI_KEY, posori_task->_kp_ori);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KV_ORI_KEY, posori_task->_kv_ori);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KI_ORI_KEY, posori_task->_ki_ori);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, KP_NONISOTROPIC_POS_KEY, posori_kp_nonisotropic);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, KV_NONISOTROPIC_POS_KEY, posori_kv_nonisotropic);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, KI_NONISOTROPIC_POS_KEY, posori_ki_nonisotropic);
+    redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, USE_ISOTROPIC_POS_GAINS_KEY, posori_use_isotropic_gains);
+    redis_client.addStringToWriteCallback(INIT_WRITE_CALLBACK_ID, DYN_DEC_POSORI_KEY, posori_dynamic_decoupling_mode);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position); 
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_ORI_KEY, posori_euler_angles);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 }
 
 void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
@@ -249,15 +253,19 @@ int main(int argc, char **argv)
     // notify UI that we are initializing
     redis_client.set(CONTROL_STATE_KEY, CONTROL_STATE_INITIALIZING);
 
+    // create basic pipeline handles
+    redis_client.createReadCallback(READ_CALLBACK_ID);
+    redis_client.createWriteCallback(INIT_WRITE_CALLBACK_ID);
+
     // load robots & bind joint angles/velocity to redis
     auto robot = new Sai2Model::Sai2Model(ROBOT_FILE, false);
-    redis_client.addEigenToRead(JOINT_ANGLES_KEY, robot->_q);
-    redis_client.addEigenToRead(JOINT_VELOCITIES_KEY, robot->_dq);
-    redis_client.readAllSetupValues();
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, JOINT_ANGLES_KEY, robot->_q);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, JOINT_VELOCITIES_KEY, robot->_dq);
+    redis_client.executeReadCallback(READ_CALLBACK_ID);
     robot->updateModel();
 
     // bind current state to what redis says
-    redis_client.addStringToRead(PRIMITIVE_KEY, currentPrimitive);
+    redis_client.addStringToReadCallback(READ_CALLBACK_ID, PRIMITIVE_KEY, currentPrimitive);
 
     // prepare controller
     int dof = robot->dof();
@@ -276,7 +284,7 @@ int main(int argc, char **argv)
     Sai2Primitives::JointTask *joint_task = new Sai2Primitives::JointTask(robot);
     init_joint_task(joint_task, redis_client);
 
-    redis_client.writeAllSetupValues();
+    redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
 
     // initialization complete
     redis_client.set(CONTROL_STATE_KEY, CONTROL_STATE_INITIALIZED);
@@ -305,7 +313,7 @@ int main(int argc, char **argv)
         string oldPrimitive = currentPrimitive;
 
         // update all values tied to redis
-        redis_client.readAllSetupValues();
+        redis_client.executeReadCallback(READ_CALLBACK_ID);
         update_joint_task(joint_task);
         update_posori_task(posori_task);
 
