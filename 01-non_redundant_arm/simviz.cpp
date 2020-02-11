@@ -65,6 +65,8 @@ int main(int argc, char **argv)
 
 	// open redis
 	redis_client.connect();
+	redis_client.createReadCallback(0);
+	redis_client.createWriteCallback(0);
 
 	// set up signal handler
 	signal(SIGABRT, &sighandler);
@@ -243,18 +245,17 @@ void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim, UI
 	ui_force_command_torques.setZero();
 
 	// initialize redis write & read keys
-	redis_client.addEigenToWrite(JOINT_ANGLES_KEY, robot->_q);
-	redis_client.addEigenToWrite(JOINT_VELOCITIES_KEY, robot->_dq);
-	redis_client.addEigenToWrite(UI_FORCE_KEY, ui_force);
-	redis_client.addEigenToWrite(UI_FORCE_COMMAND_TORQUES_KEY, ui_force_command_torques);
-
-	redis_client.addEigenToRead(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+	redis_client.addEigenToWriteCallback(0, JOINT_ANGLES_KEY, robot->_q);
+	redis_client.addEigenToWriteCallback(0, JOINT_VELOCITIES_KEY, robot->_dq);
+	redis_client.addEigenToWriteCallback(0, UI_FORCE_KEY, ui_force);
+	redis_client.addEigenToWriteCallback(0, UI_FORCE_COMMAND_TORQUES_KEY, ui_force_command_torques);
+	redis_client.addEigenToReadCallback(0, JOINT_TORQUES_COMMANDED_KEY, command_torques);
 
 	fSimulationRunning = true;
 	while (fSimulationRunning)
 	{
 		fTimerDidSleep = timer.waitForNextLoop();
-		redis_client.readAllSetupValues();
+		redis_client.executeReadCallback(0);
 
 		ui_force_widget->getUIForce(ui_force);
 		ui_force_widget->getUIJointTorques(ui_force_command_torques);
@@ -272,7 +273,7 @@ void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim, UI
 		sim->getJointVelocities(robot_name, robot->_dq);
 		robot->updateKinematics();
 
-		redis_client.writeAllSetupValues();
+		redis_client.executeWriteCallback(0);
 	}
 
 	double end_time = timer.elapsedTime();
