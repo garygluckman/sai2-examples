@@ -247,6 +247,9 @@ int main(int argc, char **argv)
     // open redis
     redis_client.connect();
 
+    redis_client.createReadCallback(READ_CALLBACK_ID);
+    redis_client.createWriteCallback(INIT_WRITE_CALLBACK_ID);
+    
     // set up signal handlers
     signal(SIGABRT, &sighandler);
     signal(SIGTERM, &sighandler);
