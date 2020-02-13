@@ -1,7 +1,8 @@
 cmake_minimum_required (VERSION 2.8.12)
 project (SAI2-EXAMPLES)
 SET(CMAKE_CXX_FLAGS "-std=c++14")
-SET(CMAKE_BUILD_TYPE "Release")
+#SET(CMAKE_BUILD_TYPE "Release")
+SET(CMAKE_BUILD_TYPE "Debug")
 
 # set common dependencies
 # - eigen3
@@ -80,4 +81,4 @@ set (SAI2-EXAMPLES_BINARY_DIR ${PROJECT_SOURCE_DIR}/bin)
 
 add_subdirectory(01-non_redundant_arm)
 add_subdirectory(02-redundant_arm)
-add_subdirectory(03-two_arms)
+#add_subdirectory(03-two_arms)

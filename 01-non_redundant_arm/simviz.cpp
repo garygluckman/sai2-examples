@@ -9,7 +9,6 @@
 #include "Sai2Simulation.h"
 #include "uiforce/UIForceWidget.h"
 #include <dynamics3d.h>
-
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
 #include "tasks/PosOriTask.h"
@@ -20,6 +19,7 @@
 
 using namespace Eigen;
 
+// redis keys
 constexpr const char *world_file = "resources/world.urdf";
 constexpr const char *robot_name = "PUMA";
 constexpr const char *camera_name = "camera";
@@ -34,7 +34,8 @@ void sighandler(int)
 }
 
 // simulation and control loop
-void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim, UIForceWidget *ui_force_widget);
+void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim, 
+				UIForceWidget *ui_force_widget);
 
 // initialize window manager
 GLFWwindow *glfwInitialize();

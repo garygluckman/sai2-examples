@@ -47,10 +47,10 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     // initialize global variables
     joint_kp_nonisotropic = 100.0 * VectorXd::Ones(dof);
     joint_kv_nonisotropic = 20.0 * VectorXd::Ones(dof);
-    joint_use_interpolation = 1;
+    joint_use_interpolation = 0;
     joint_use_velocity_saturation = 0;
     joint_use_isotropic_gains = 1;
-    joint_dynamic_decoupling_mode = "inertia_saturation";
+    joint_dynamic_decoupling_mode = "full";
 
     // initialize joint_task object
     joint_task->_kp = 100.0;
@@ -89,17 +89,38 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
 
 void update_joint_task(Sai2Primitives::JointTask *joint_task)
 {
+    auto dof = joint_task->_robot->dof();
+
     if (joint_use_interpolation && !joint_task->_use_interpolation_flag)
         joint_task->reInitializeTask();
+
+    if (!joint_task->_use_isotropic_gains && joint_use_isotropic_gains)
+    {
+        // going from nonisotropic to isotropic
+        VectorXd kp_median_temp(joint_kp_nonisotropic);
+        VectorXd kv_median_temp(joint_kv_nonisotropic);
+
+        std::nth_element(kp_median_temp.data(), kp_median_temp.data() + dof / 2, kp_median_temp.data() + dof);
+        std::nth_element(kv_median_temp.data(), kv_median_temp.data() + dof / 2, kv_median_temp.data() + dof);
+
+        joint_task->_kp = kp_median_temp[dof / 2];
+        joint_task->_kv = kv_median_temp[dof / 2];
+        redis_client.set(KP_JOINT_KEY, std::to_string(joint_task->_kp));
+        redis_client.set(KV_JOINT_KEY, std::to_string(joint_task->_kv));
+    }
+    else if (joint_task->_use_isotropic_gains && !joint_use_isotropic_gains)
+    {
+        // going from isotropic to nonisotropic
+        joint_kp_nonisotropic = joint_task->_kp * VectorXd::Ones(dof);
+        joint_kv_nonisotropic = joint_task->_kv * VectorXd::Ones(dof);
+        joint_task->setNonIsotropicGains(joint_kp_nonisotropic, joint_kv_nonisotropic, VectorXd::Zero(dof));
+        redis_client.setEigenMatrixJSON(KP_NON_ISOTROPIC_JOINT_KEY, joint_kp_nonisotropic);
+        redis_client.setEigenMatrixJSON(KV_NON_ISOTROPIC_JOINT_KEY, joint_kv_nonisotropic);
+    }
 
     joint_task->_use_interpolation_flag = bool(joint_use_interpolation);
     joint_task->_use_isotropic_gains = bool(joint_use_isotropic_gains);
     joint_task->_use_velocity_saturation_flag = bool(joint_use_velocity_saturation);
-    joint_task->setNonIsotropicGains(
-        joint_kp_nonisotropic,
-        joint_kv_nonisotropic,
-        VectorXd::Zero(joint_task->_robot->dof())
-    );
 
     if (joint_dynamic_decoupling_mode == "full")
         joint_task->setDynamicDecouplingFull();
@@ -132,14 +153,14 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_task->_robot->linearVelocity(initial_velocity, posori_task->_link_name, posori_task->_control_frame.translation());
 
     // initialize global variables
-    posori_use_interpolation = 1;
+    posori_use_interpolation = 0;
     posori_use_velocity_saturation = 0;
     posori_use_isotropic_gains = 1;
     posori_velocity_saturation = M_PI / 3.0 * Vector2d::Ones();
     posori_kp_nonisotropic = 100.0 * Vector3d::Ones();
     posori_kv_nonisotropic = 20.0 * Vector3d::Ones();
-    posori_ki_nonisotropic = 2.0 * Vector3d::Ones();
-    posori_dynamic_decoupling_mode = "inertia_saturation";
+    posori_ki_nonisotropic = Vector3d::Zero();
+    posori_dynamic_decoupling_mode = "full";
 
     // we are doing ZYX, but we store XYZ
     posori_euler_angles = initial_orientation.eulerAngles(2, 1, 0).reverse();
@@ -149,10 +170,10 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_task->_use_velocity_saturation_flag = bool(posori_use_velocity_saturation);
     posori_task->_kp_pos = 100.0;
     posori_task->_kv_pos = 20.0;
-    posori_task->_ki_pos = 2.0;
+    posori_task->_ki_pos = 0.0;
     posori_task->_kp_ori = 100.0;
     posori_task->_kv_ori = 20.0;
-    posori_task->_ki_ori = 2.0;
+    posori_task->_ki_ori = 0.0;
     posori_task->setNonIsotropicGainsPosition(
         Matrix3d::Identity(), 
         posori_kp_nonisotropic,
@@ -161,7 +182,7 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     );
     posori_task->_use_isotropic_gains_position = bool(posori_use_isotropic_gains);
     posori_task->_use_isotropic_gains_orientation = true;
-    posori_task->setDynamicDecouplingInertiaSaturation();
+    posori_task->setDynamicDecouplingFull();
 
     // prepare redis callback
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, POSORI_USE_INTERPOLATION, posori_use_interpolation);
@@ -204,15 +225,42 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
 
 void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
 {
-    posori_task->setNonIsotropicGainsPosition(
-        Matrix3d::Identity(), 
-        posori_kp_nonisotropic,
-        posori_kv_nonisotropic, 
-        posori_ki_nonisotropic
-    );
+    auto dof = posori_task->_robot->dof();
 
     if (posori_use_interpolation && !posori_task->_use_interpolation_flag)
         posori_task->reInitializeTask();
+
+    if (posori_task->_use_isotropic_gains_position && !posori_use_isotropic_gains)
+    {
+        // going from isotropic to nonisotropic
+        posori_kp_nonisotropic = posori_task->_kp_pos * Vector3d::Ones();
+        posori_kv_nonisotropic = posori_task->_kv_pos * Vector3d::Ones();
+        posori_ki_nonisotropic = posori_task->_ki_pos * Vector3d::Ones();
+
+        posori_task->setNonIsotropicGainsPosition(
+            Matrix3d::Identity(), 
+            posori_kp_nonisotropic,
+            posori_kv_nonisotropic,
+            posori_ki_nonisotropic
+        );
+        redis_client.setEigenMatrixJSON(KP_NONISOTROPIC_POS_KEY, posori_kp_nonisotropic);
+        redis_client.setEigenMatrixJSON(KV_NONISOTROPIC_POS_KEY, posori_kv_nonisotropic);
+        redis_client.setEigenMatrixJSON(KI_NONISOTROPIC_POS_KEY, posori_ki_nonisotropic);
+    }
+    else if (!posori_task->_use_isotropic_gains_position && posori_use_isotropic_gains)
+    {
+        // going from nonisotropic to isotropic
+        Vector3d kp_median_temp(posori_kp_nonisotropic);
+        Vector3d kv_median_temp(posori_kv_nonisotropic);
+
+        std::nth_element(kp_median_temp.data(), kp_median_temp.data() + 1, kp_median_temp.data() + 3);
+        std::nth_element(kv_median_temp.data(), kv_median_temp.data() + 1, kv_median_temp.data() + 3);
+
+        posori_task->_kp_pos = kp_median_temp[1];
+        posori_task->_kv_pos = kv_median_temp[1];
+        redis_client.set(KP_POS_KEY, std::to_string(posori_task->_kp_pos));
+        redis_client.set(KV_POS_KEY, std::to_string(posori_task->_kv_pos));
+    }
 
     posori_task->_use_interpolation_flag = bool(posori_use_interpolation);
     posori_task->_use_velocity_saturation_flag = bool(posori_use_velocity_saturation);

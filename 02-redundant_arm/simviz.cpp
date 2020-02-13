@@ -7,6 +7,7 @@
 #include "Sai2Model.h"
 #include "Sai2Graphics.h"
 #include "Sai2Simulation.h"
+#include "uiforce/UIForceWidget.h"
 #include <dynamics3d.h>
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
@@ -32,7 +33,8 @@ void sighandler(int)
 }
 
 // simulation and control loop
-void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim);
+void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim, 
+				UIForceWidget *ui_force_widget);
 
 // initialize window manager
 GLFWwindow *glfwInitialize();
@@ -54,6 +56,7 @@ bool fTransYn = false;
 bool fTransZp = false;
 bool fTransZn = false;
 bool fRotPanTilt = false;
+bool fRobotLinkSelect = false;
 
 int main(int argc, char **argv)
 {
@@ -91,9 +94,13 @@ int main(int argc, char **argv)
 	glfwSetKeyCallback(window, keySelect);
 	glfwSetMouseButtonCallback(window, mouseClick);
 
+	// init click force widget 
+	auto ui_force_widget = new UIForceWidget(robot_name, robot, graphics);
+	ui_force_widget->setEnable(false);
+
 	// start the simulation thread first
 	fSimulationRunning = true;
-	std::thread sim_thread(simulation, robot, sim);
+	std::thread sim_thread(simulation, robot, sim, ui_force_widget);
 
 	// while window is open:
 	while (!glfwWindowShouldClose(window))
@@ -172,6 +179,32 @@ int main(int argc, char **argv)
 		}
 		graphics->setCameraPose(camera_name, camera_pos, cam_up_axis, camera_lookat);
 		glfwGetCursorPos(window, &last_cursorx, &last_cursory);
+
+		ui_force_widget->setEnable(fRobotLinkSelect);
+		if (fRobotLinkSelect)
+		{
+			double cursorx, cursory;
+			int wwidth_scr, wheight_scr;
+			int wwidth_pix, wheight_pix;
+			std::string ret_link_name;
+			Eigen::Vector3d ret_pos;
+
+			// get current cursor position
+			glfwGetCursorPos(window, &cursorx, &cursory);
+
+			glfwGetWindowSize(window, &wwidth_scr, &wheight_scr);
+			glfwGetFramebufferSize(window, &wwidth_pix, &wheight_pix);
+
+			int viewx = floor(cursorx / wwidth_scr * wwidth_pix);
+			int viewy = floor(cursory / wheight_scr * wheight_pix);
+
+			if (cursorx > 0 && cursory > 0)
+			{
+				ui_force_widget->setInteractionParams(camera_name, viewx, wheight_pix - viewy, wwidth_pix, wheight_pix);
+				//TODO: this behavior might be wrong. this will allow the user to click elsewhere in the screen
+				// then drag the mouse over a link to start applying a force to it.
+			}
+		}
 	}
 
 	// stop simulation
@@ -187,7 +220,7 @@ int main(int argc, char **argv)
 }
 
 //------------------------------------------------------------------------------
-void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim)
+void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim, UIForceWidget *ui_force_widget)
 {
 
 	int dof = robot->dof();
@@ -201,6 +234,12 @@ void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim)
 	double last_time = timer.elapsedTime(); //secs
 	bool fTimerDidSleep = true;
 
+	Eigen::Vector3d ui_force;
+	ui_force.setZero();
+
+	Eigen::VectorXd ui_force_command_torques;
+	ui_force_command_torques.setZero();
+
 	fSimulationRunning = true;
 	while (fSimulationRunning)
 	{
@@ -209,6 +248,14 @@ void simulation(Sai2Model::Sai2Model *robot, Simulation::Sai2Simulation *sim)
 		// read command torques from redis and apply to simulation
 		command_torques = redis_client.getEigenMatrixJSON(SIM_JOINT_TORQUES_COMMANDED_KEY);
 		sim->setJointTorques(robot_name, command_torques);
+
+		ui_force_widget->getUIForce(ui_force);
+		ui_force_widget->getUIJointTorques(ui_force_command_torques);
+
+		if (fRobotLinkSelect)
+			sim->setJointTorques(robot_name, command_torques + ui_force_command_torques);
+		else
+			sim->setJointTorques(robot_name, command_torques);
 
 		// integrate forward
 		sim->integrate(0.001);
@@ -325,7 +372,7 @@ void mouseClick(GLFWwindow *window, int button, int action, int mods)
 		break;
 	// if right click: don't handle. this is for menu selection
 	case GLFW_MOUSE_BUTTON_RIGHT:
-		//TODO: menu
+		fRobotLinkSelect = set;
 		break;
 	// if middle click: don't handle. doesn't work well on laptops
 	case GLFW_MOUSE_BUTTON_MIDDLE:
