@@ -66,7 +66,7 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     joint_task->_use_isotropic_gains = bool(joint_use_isotropic_gains);
     joint_task->_use_velocity_saturation_flag = bool(joint_use_velocity_saturation);
     joint_task->_use_interpolation_flag = bool(joint_use_interpolation);
-    joint_task->setDynamicDecouplingInertiaSaturation();
+    joint_task->setDynamicDecouplingFull();
     
     // update values when we read all parameters on a new controller cycle
     redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KP_JOINT_KEY, joint_task->_kp);
