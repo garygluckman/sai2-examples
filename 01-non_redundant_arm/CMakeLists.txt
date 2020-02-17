@@ -18,3 +18,6 @@ FILE(COPY world.urdf puma.urdf puma_modified.urdf DESTINATION ${APP_RESOURCE_DIR
 
 # copy in sai2-interfaces 
 FILE(COPY ${SAI2-INTERFACES_UI_DIR} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+# copy launch script
+FILE(COPY launch.sh DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
