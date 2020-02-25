@@ -103,7 +103,7 @@ int main(int argc, char **argv)
 	std::thread sim_thread(simulation, robot, sim, ui_force_widget);
 
 	// while window is open:
-	while (!glfwWindowShouldClose(window))
+	while (!glfwWindowShouldClose(window) && fSimulationRunning)
 	{
 		// update graphics. this automatically waits for the correct amount of time
 		int width, height;

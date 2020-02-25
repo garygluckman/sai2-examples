@@ -4,6 +4,13 @@
 ./simviz01 &
 SIMVIZ_PID=$!
 
+# trap ctrl-c and call ctrl_c()
+trap ctrl_c INT
+
+function ctrl_c() {
+    kill -2 $SIMVIZ_PID
+}
+
 sleep 1
 
 # launch controller
