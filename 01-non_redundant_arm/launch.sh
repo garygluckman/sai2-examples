@@ -11,7 +11,7 @@ function ctrl_c() {
     kill -2 $SIMVIZ_PID
 }
 
-sleep 1
+sleep 2 
 
 # launch controller
 ./controller01 &
