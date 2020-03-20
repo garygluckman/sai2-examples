@@ -162,8 +162,14 @@
                 </sai2-interfaces-slider>
               </sai2-interfaces-toggle-group-disabled>
             </sai2-interfaces-toggle-group>
-            <sai2-interfaces-toggle display="Use Interpolation" key="sai2::examples::joint_use_interpolation">
-            </sai2-interfaces-toggle>
+            <sai2-interfaces-accordion displayName="Use Interpolation" key="sai2::examples::use_joint_velocity_saturation">
+              <sai2-interfaces-slider key="sai2::examples::joint_interpolation_max_vel" display="OTG Max Vel" min="0", max="3.14", step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::joint_interpolation_max_accel" display="OTG Max Accel" min="0", max="6.28", step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::joint_interpolation_max_jerk" display="OTG Max Jerk" min="0", max="15", step="0.01">
+              </sai2-interfaces-slider>
+            </sai2-interfaces-accordion><br>
             <!--<sai2-interfaces-accordion displayName="Velocity Saturation"
               key="sai2::examples::use_joint_velocity_saturation">
               <sai2-interfaces-slider key="sai2::examples::joint_velocity_saturation"
@@ -230,8 +236,20 @@
             </sai2-interfaces-slider>
             <!--<sai2-interfaces-slider key="sai2::examples::ki_ori" display="Ki Ori" min="0" max="100" step="0.01">
             </sai2-interfaces-slider>-->
-            <sai2-interfaces-toggle display="Use Interpolation" key="sai2::examples::posori_use_interpolation">
-            </sai2-interfaces-toggle>
+            <sai2-interfaces-accordion displayName="Use Interpolation" key="sai2::examples::use_posori_velocity_saturation">
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_linear_vel" display="OTG Max Linear Vel" min="0", max="1", step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_linear_accel" display="OTG Max Linear Accel" min="0", max="2", step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_linear_jerk" display="OTG Max Linear Jerk" min="0", max="9", step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_angular_vel" display="OTG Max Angular Vel" min="0", max="3.14", step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_angular_accel" display="OTG Max Angular Accel" min="0", max="6.28", step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_angular_jerk" display="OTG Max Angular Jerk" min="0", max="15", step="0.01">
+              </sai2-interfaces-slider>
+            </sai2-interfaces-accordion><br>
             <sai2-interfaces-accordion displayName="Velocity Saturation"
               key="sai2::examples::use_posori_velocity_saturation">
               <sai2-interfaces-slider key="sai2::examples::posori_velocity_saturation"

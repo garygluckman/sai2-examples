@@ -42,6 +42,9 @@ void sighandler(int)
 Eigen::VectorXd joint_kp_nonisotropic;
 Eigen::VectorXd joint_kv_nonisotropic;
 int joint_use_interpolation;
+double joint_interpolation_max_velocity;
+double joint_interpolation_max_acceleration;
+double joint_interpolation_max_jerk;
 int joint_use_velocity_saturation;
 int joint_use_isotropic_gains;
 std::string joint_dynamic_decoupling_mode;
@@ -54,6 +57,9 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     joint_kp_nonisotropic = 100.0 * VectorXd::Ones(dof);
     joint_kv_nonisotropic = 20.0 * VectorXd::Ones(dof);
     joint_use_interpolation = 0;
+    joint_interpolation_max_velocity = M_PI / 3;
+    joint_interpolation_max_acceleration = M_PI;
+    joint_interpolation_max_jerk = 3 * M_PI;
     joint_use_velocity_saturation = 0;
     joint_use_isotropic_gains = 1;
     joint_dynamic_decoupling_mode = "full";
@@ -67,6 +73,9 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     joint_task->_use_velocity_saturation_flag = bool(joint_use_velocity_saturation);
     joint_task->_use_interpolation_flag = bool(joint_use_interpolation);
     joint_task->setDynamicDecouplingFull();
+    joint_task->_otg->setMaxVelocity(joint_interpolation_max_velocity);
+    joint_task->_otg->setMaxAcceleration(joint_interpolation_max_acceleration);
+    joint_task->_otg->setMaxJerk(joint_interpolation_max_jerk);
     
     // update values when we read all parameters on a new controller cycle
     redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KP_JOINT_KEY, joint_task->_kp);
@@ -75,6 +84,9 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, KV_NON_ISOTROPIC_JOINT_KEY, joint_kv_nonisotropic);
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, JOINT_USE_INTERPOLATION, joint_use_interpolation);
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_ISOTROPIC_JOINT_GAINS_KEY, joint_use_isotropic_gains);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, JOINT_INTERPOLATION_MAX_VEL, joint_interpolation_max_velocity);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, JOINT_INTERPOLATION_MAX_ACCEL, joint_interpolation_max_acceleration);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, JOINT_INTERPOLATION_MAX_JERK, joint_interpolation_max_jerk);
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_VEL_SAT_JOINT_KEY, joint_use_velocity_saturation);
     redis_client.addStringToReadCallback(READ_CALLBACK_ID, DYN_DEC_JOINT_KEY, joint_dynamic_decoupling_mode);
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_JOINT_POS_KEY, joint_task->_desired_position);
@@ -91,6 +103,9 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     redis_client.addStringToWriteCallback(INIT_WRITE_CALLBACK_ID, DYN_DEC_JOINT_KEY, joint_dynamic_decoupling_mode);
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_JOINT_POS_KEY, joint_task->_desired_position);
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, VEL_SAT_JOINT_KEY, joint_task->_saturation_velocity);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, JOINT_INTERPOLATION_MAX_VEL, joint_interpolation_max_velocity);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, JOINT_INTERPOLATION_MAX_ACCEL, joint_interpolation_max_acceleration);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, JOINT_INTERPOLATION_MAX_JERK, joint_interpolation_max_jerk);
 }
 
 void update_joint_task(Sai2Primitives::JointTask *joint_task)
@@ -128,6 +143,10 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
     joint_task->_use_velocity_saturation_flag = bool(joint_use_velocity_saturation);
     joint_task->_use_isotropic_gains = bool(joint_use_isotropic_gains);
 
+    joint_task->_otg->setMaxVelocity(joint_interpolation_max_velocity);
+    joint_task->_otg->setMaxAcceleration(joint_interpolation_max_acceleration);
+    joint_task->_otg->setMaxJerk(joint_interpolation_max_jerk);
+
     if (joint_dynamic_decoupling_mode == "full")
         joint_task->setDynamicDecouplingFull();
     else if (joint_dynamic_decoupling_mode == "inertia_saturation")
@@ -138,6 +157,12 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
 
 ////////////////// POSORI TASK VARIABLES //////////////////
 int posori_use_interpolation;
+double posori_interpolation_max_linear_velocity;
+double posori_interpolation_max_linear_acceleration;
+double posori_interpolation_max_linear_jerk;
+double posori_interpolation_max_angular_velocity;
+double posori_interpolation_max_angular_acceleration;
+double posori_interpolation_max_angular_jerk;
 int posori_use_velocity_saturation;
 int posori_use_isotropic_gains;
 Eigen::Vector3d posori_euler_angles;
@@ -167,6 +192,12 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_kv_nonisotropic = 12.0 * Vector3d::Ones();
     posori_ki_nonisotropic = Vector3d::Zero();
     posori_dynamic_decoupling_mode = "full";
+    posori_interpolation_max_linear_velocity = 0.3;
+    posori_interpolation_max_linear_acceleration = 1.0;
+    posori_interpolation_max_linear_jerk = 3.0;
+    posori_interpolation_max_angular_velocity = M_PI / 3;
+    posori_interpolation_max_angular_acceleration = M_PI;
+    posori_interpolation_max_angular_jerk = 3 * M_PI;
 
     // we are doing ZYX, but we store XYZ
     posori_euler_angles = initial_orientation.eulerAngles(2, 1, 0).reverse();
@@ -190,8 +221,21 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_task->_use_isotropic_gains_orientation = true;
     posori_task->setDynamicDecouplingFull();
 
+	posori_task->_otg->setMaxLinearVelocity(posori_interpolation_max_linear_velocity);
+	posori_task->_otg->setMaxLinearAcceleration(posori_interpolation_max_linear_acceleration);
+	posori_task->_otg->setMaxLinearJerk(posori_interpolation_max_linear_jerk);
+	posori_task->_otg->setMaxAngularVelocity(posori_interpolation_max_angular_velocity);
+	posori_task->_otg->setMaxAngularAcceleration(posori_interpolation_max_angular_acceleration);
+	posori_task->_otg->setMaxAngularJerk(posori_interpolation_max_angular_jerk);
+
     // prepare redis callback
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, POSORI_USE_INTERPOLATION, posori_use_interpolation);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, POSORI_INTERPOLATION_MAX_LINEAR_VEL, posori_interpolation_max_linear_velocity);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, POSORI_INTERPOLATION_MAX_LINEAR_ACCEL, posori_interpolation_max_linear_acceleration);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, POSORI_INTERPOLATION_MAX_LINEAR_JERK, posori_interpolation_max_linear_jerk);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, POSORI_INTERPOLATION_MAX_ANGULAR_VEL, posori_interpolation_max_angular_velocity);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, POSORI_INTERPOLATION_MAX_ANGULAR_ACCEL, posori_interpolation_max_angular_acceleration);
+    redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, POSORI_INTERPOLATION_MAX_ANGULAR_JERK, posori_interpolation_max_angular_jerk);
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_VEL_SAT_POSORI_KEY, posori_use_velocity_saturation);
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, VEL_SAT_POSORI_KEY, posori_velocity_saturation);
     redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KP_POS_KEY, posori_task->_kp_pos);
@@ -211,6 +255,12 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
 
     // update redis for initial conditions and any controller-induced changes
     redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, POSORI_USE_INTERPOLATION, posori_use_interpolation);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, POSORI_INTERPOLATION_MAX_LINEAR_VEL, posori_interpolation_max_linear_velocity);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, POSORI_INTERPOLATION_MAX_LINEAR_ACCEL, posori_interpolation_max_linear_acceleration);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, POSORI_INTERPOLATION_MAX_LINEAR_JERK, posori_interpolation_max_linear_jerk);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, POSORI_INTERPOLATION_MAX_ANGULAR_VEL, posori_interpolation_max_angular_velocity);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, POSORI_INTERPOLATION_MAX_ANGULAR_ACCEL, posori_interpolation_max_angular_acceleration);
+    redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, POSORI_INTERPOLATION_MAX_ANGULAR_JERK, posori_interpolation_max_angular_jerk);
     redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, USE_VEL_SAT_POSORI_KEY, posori_use_velocity_saturation);
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, VEL_SAT_POSORI_KEY, posori_velocity_saturation);
     redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KP_POS_KEY, posori_task->_kp_pos);
@@ -269,6 +319,13 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
     }
 
     posori_task->_use_interpolation_flag = bool(posori_use_interpolation);
+    posori_task->_otg->setMaxLinearVelocity(posori_interpolation_max_linear_velocity);
+	posori_task->_otg->setMaxLinearAcceleration(posori_interpolation_max_linear_acceleration);
+	posori_task->_otg->setMaxLinearJerk(posori_interpolation_max_linear_jerk);
+	posori_task->_otg->setMaxAngularVelocity(posori_interpolation_max_angular_velocity);
+	posori_task->_otg->setMaxAngularAcceleration(posori_interpolation_max_angular_acceleration);
+	posori_task->_otg->setMaxAngularJerk(posori_interpolation_max_angular_jerk);
+
     posori_task->_use_velocity_saturation_flag = bool(posori_use_velocity_saturation);
     posori_task->_use_isotropic_gains_position = bool(posori_use_isotropic_gains);
     posori_task->_linear_saturation_velocity = posori_velocity_saturation(0);
