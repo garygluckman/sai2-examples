@@ -198,6 +198,8 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_interpolation_max_angular_velocity = M_PI / 3;
     posori_interpolation_max_angular_acceleration = M_PI;
     posori_interpolation_max_angular_jerk = 3 * M_PI;
+    posori_velocity_saturation(0) = posori_task->_linear_saturation_velocity;
+    posori_velocity_saturation(1) = posori_task->_angular_saturation_velocity;
 
     // we are doing ZYX, but we store XYZ
     posori_euler_angles = initial_orientation.eulerAngles(2, 1, 0).reverse();

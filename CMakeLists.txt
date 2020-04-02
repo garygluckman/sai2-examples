@@ -79,6 +79,7 @@ set(SAI2-EXAMPLES_COMMON_LIBRARIES
 # add apps
 set (SAI2-EXAMPLES_BINARY_DIR ${PROJECT_SOURCE_DIR}/bin)
 
+add_subdirectory(00-simple_panda)
 add_subdirectory(01-non_redundant_arm)
 add_subdirectory(02-redundant_arm)
 #add_subdirectory(03-two_arms)
