@@ -78,10 +78,15 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
 void update_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task)
 {
     // TODO
-    two_hand_task->updateSensedForcesAndMoments(
-        sensed_force_moments[0].head(3), sensed_force_moments[0].tail(3),
-        sensed_force_moments[1].head(3), sensed_force_moments[1].tail(3)
-    );
+
+    // XXX: is this only valid when internal_force is true?
+    if (two_hand_task->_internal_force_control_flag)
+    {
+        two_hand_task->updateSensedForcesAndMoments(
+            sensed_force_moments[0].head(3), sensed_force_moments[0].tail(3),
+            sensed_force_moments[1].head(3), sensed_force_moments[1].tail(3)
+        );
+    }
 }
 
 // function to update model at a slower rate
@@ -184,21 +189,21 @@ int main()
     T_link_sensor.translation() = Vector3d(0, 0, 0.113);
     two_hand_task->setForceSensorFrames(sensor_link_name, T_link_sensor, sensor_link_name, T_link_sensor);
 
-	// set goal positions for the first state in world frame
-	Vector3d robot1_desired_position_in_world = Vector3d(0.2, -0.2, 0.15);
-	Vector3d robot2_desired_position_in_world = Vector3d(0.2,  0.2, 0.15);
+    // set goal positions for the first state in world frame
+    Vector3d robot1_desired_position_in_world = Vector3d(0.2, -0.2, 0.15);
+    Vector3d robot2_desired_position_in_world = Vector3d(0.2,  0.2, 0.15);
 
-	Matrix3d robot1_desired_orientation_in_world;
-	Matrix3d robot2_desired_orientation_in_world;
-	robot1_desired_orientation_in_world << 1, 0, 0, 0, 0, 1, 0, -1, 0;
-	robot2_desired_orientation_in_world << 1, 0, 0, 0, 0, -1, 0, 1, 0;
+    Matrix3d robot1_desired_orientation_in_world;
+    Matrix3d robot2_desired_orientation_in_world;
+    robot1_desired_orientation_in_world << 1, 0, 0, 0, 0, 1, 0, -1, 0;
+    robot2_desired_orientation_in_world << 1, 0, 0, 0, 0, -1, 0, 1, 0;
 
-	// set desired position and orientation for posori tasks : needs to be in robot frame
-	posori_tasks[0]->_desired_position = robot_pose_in_world[0].linear().transpose()*(robot1_desired_position_in_world - robot_pose_in_world[0].translation());
-	posori_tasks[0]->_desired_orientation = robot_pose_in_world[0].linear().transpose()*robot1_desired_orientation_in_world;
+    // set desired position and orientation for posori tasks : needs to be in robot frame
+    posori_tasks[0]->_desired_position = robot_pose_in_world[0].linear().transpose()*(robot1_desired_position_in_world - robot_pose_in_world[0].translation());
+    posori_tasks[0]->_desired_orientation = robot_pose_in_world[0].linear().transpose()*robot1_desired_orientation_in_world;
     posori_euler_angles[0] = posori_tasks[0]->_desired_orientation.eulerAngles(2, 1, 0).reverse();
-	posori_tasks[1]->_desired_position = robot_pose_in_world[1].linear().transpose()*(robot2_desired_position_in_world - robot_pose_in_world[1].translation());
-	posori_tasks[1]->_desired_orientation = robot_pose_in_world[1].linear().transpose()*robot2_desired_orientation_in_world;
+    posori_tasks[1]->_desired_position = robot_pose_in_world[1].linear().transpose()*(robot2_desired_position_in_world - robot_pose_in_world[1].translation());
+    posori_tasks[1]->_desired_orientation = robot_pose_in_world[1].linear().transpose()*robot2_desired_orientation_in_world;
     posori_euler_angles[1] = posori_tasks[1]->_desired_orientation.eulerAngles(2, 1, 0).reverse();
 
     // initialization complete
@@ -271,7 +276,11 @@ int main()
             }
             else if (currentPrimitive == PRIMITIVE_COORDINATED_TASK)
             {
-                // TODO
+                two_hand_task->reInitializeTask();
+                for (int i = 0; i < N_ROBOTS; i++)
+                {
+                    joint_tasks[i]->reInitializeTask();
+                }
             }
         }
 
