@@ -1,4 +1,7 @@
 #!/bin/bash
+if [ ! "$BASH_VERSION" ] ; then
+    exec /bin/bash "$0" "$@"
+fi
 
 # launch simulation first
 ./simviz00 &
