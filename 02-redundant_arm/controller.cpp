@@ -291,9 +291,9 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
     if (posori_task->_use_isotropic_gains_position && !posori_use_isotropic_gains)
     {
         // going from isotropic to nonisotropic
-        posori_kp_nonisotropic = posori_task->_kp_pos * VectorXd::Ones(dof);
-        posori_kv_nonisotropic = posori_task->_kv_pos * VectorXd::Ones(dof);
-        posori_ki_nonisotropic = posori_task->_ki_pos * VectorXd::Ones(dof);
+        posori_kp_nonisotropic = posori_task->_kp_pos * Vector3d::Ones();
+        posori_kv_nonisotropic = posori_task->_kv_pos * Vector3d::Ones();
+        posori_ki_nonisotropic = posori_task->_ki_pos * Vector3d::Ones();
 
         posori_task->setNonIsotropicGainsPosition(
             Matrix3d::Identity(), 
