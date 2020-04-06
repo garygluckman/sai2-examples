@@ -30,7 +30,6 @@ constexpr const char *DESIRED_ORI_KEY = "sai2::examples::desired_orientation";
 constexpr const char *DESIRED_VEL_KEY = "sai2::examples::desired_velocity";
 constexpr const char *KP_POS_KEY = "sai2::examples::kp_pos";
 constexpr const char *KV_POS_KEY = "sai2::examples::kv_pos";
-constexpr const char *KI_POS_KEY = "sai2::examples::ki_pos";
 constexpr const char *USE_VEL_SAT_POSORI_KEY = "sai2::examples::use_posori_velocity_saturation";
 constexpr const char *VEL_SAT_POSORI_KEY = "sai2::examples::posori_velocity_saturation";
 
