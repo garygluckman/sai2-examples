@@ -209,6 +209,49 @@ constexpr std::array<const char *, N_ROBOTS> ROBOT_NAMES = {
 // two-hand related keys
 constexpr const char *TWO_HAND_USE_INTERNAL_FORCE_KEY = "sai2::examples::use_internal_force";
 
+constexpr const char *DESIRED_INTERNAL_SEPARATION_KEY = "sai2::examples::two_hand_desired_internal_separation";
+constexpr const char *DESIRED_INTERNAL_ANGLES_KEY = "sai2::examples::two_hand_desired_internal_angles";
+
+constexpr const char *DESIRED_INTERNAL_TENSION_KEY = "sai2::examples::two_hand_desired_internal_tension";
+constexpr const char *DESIRED_OBJECT_POSITION_KEY = "sai2::examples::two_hand_desired_object_position";
+constexpr const char *DESIRED_OBJECT_ORIENTATION_KEY = "sai2::examples::two_hand_desired_object_orientation";
+
+constexpr const char *TWO_HAND_KP_POS_KEY = "sai2::examples::two_hand_kp_pos";
+constexpr const char *TWO_HAND_KV_POS_KEY = "sai2::examples::two_hand_kv_pos";
+constexpr const char *TWO_HAND_KI_POS_KEY = "sai2::examples::two_hand_ki_pos";
+
+constexpr const char *TWO_HAND_KP_ORI_KEY = "sai2::examples::two_hand_kp_ori";
+constexpr const char *TWO_HAND_KV_ORI_KEY = "sai2::examples::two_hand_kv_ori";
+constexpr const char *TWO_HAND_KI_ORI_KEY = "sai2::examples::two_hand_ki_ori";
+
+constexpr const char *TWO_HAND_KP_FORCE_KEY = "sai2::examples::two_hand_kp_force";
+constexpr const char *TWO_HAND_KV_FORCE_KEY = "sai2::examples::two_hand_kv_force";
+constexpr const char *TWO_HAND_KI_FORCE_KEY = "sai2::examples::two_hand_ki_force";
+
+constexpr const char *TWO_HAND_KP_MOMENT_KEY = "sai2::examples::two_hand_kp_moment";
+constexpr const char *TWO_HAND_KV_MOMENT_KEY = "sai2::examples::two_hand_kv_moment";
+constexpr const char *TWO_HAND_KI_MOMENT_KEY = "sai2::examples::two_hand_ki_moment";
+
+constexpr const char *TWO_HAND_KP_INTERNAL_SEPARATION_KEY = "sai2::examples::two_hand_kp_internal_separation";
+constexpr const char *TWO_HAND_KV_INTERNAL_SEPARATION_KEY = "sai2::examples::two_hand_kv_internal_separation";
+
+constexpr const char *TWO_HAND_KP_INTERNAL_ORI_KEY = "sai2::examples::two_hand_kp_internal_ori";
+constexpr const char *TWO_HAND_KV_INTERNAL_ORI_KEY = "sai2::examples::two_hand_kv_internal_ori";
+
+constexpr const char *TWO_HAND_USE_VEL_SAT_KEY = "sai2::examples::two_hand_use_velocity_saturation";
+constexpr const char *TWO_HAND_LINEAR_VEL_SAT_KEY = "sai2::examples::two_hand_linear_velocity_sat";
+constexpr const char *TWO_HAND_ANGULAR_VEL_SAT_KEY = "sai2::examples::two_hand_angular_velocity_sat";
+
+constexpr const char *TWO_HAND_USE_INTERPOLATION_POS_KEY = "sai2::examples::two_hand_use_interpolation_pos";
+constexpr const char *TWO_HAND_INTERPOLATION_POS_MAX_VEL_KEY = "sai2::examples::two_hand_pos_interpolation_max_vel";
+constexpr const char *TWO_HAND_INTERPOLATION_POS_MAX_ACCEL_KEY = "sai2::examples::two_hand_pos_interpolation_max_accel";
+constexpr const char *TWO_HAND_INTERPOLATION_POS_MAX_JERK_KEY = "sai2::examples::two_hand_pos_interpolation_max_jerk";
+
+constexpr const char *TWO_HAND_USE_INTERPOLATION_ORI_KEY = "sai2::examples::two_hand_use_interpolation_ori";
+constexpr const char *TWO_HAND_INTERPOLATION_ORI_MAX_VEL_KEY = "sai2::examples::two_hand_ori_interpolation_max_vel";
+constexpr const char *TWO_HAND_INTERPOLATION_ORI_MAX_ACCEL_KEY = "sai2::examples::two_hand_ori_interpolation_max_accel";
+constexpr const char *TWO_HAND_INTERPOLATION_ORI_MAX_JERK_KEY = "sai2::examples::two_hand_ori_interpolation_max_jerk";
+
 // state-related keys
 constexpr const char *PRIMITIVE_KEY = "sai2::examples::primitive";
 constexpr const char *PRIMITIVE_COORDINATED_TASK = "primitive_coordinated_task";

@@ -19,6 +19,7 @@ using namespace Eigen;
 ////////////////////// CONSTANTS //////////////////////
 constexpr int INIT_WRITE_CALLBACK_ID = 0;
 constexpr int READ_CALLBACK_ID = 0;
+constexpr int CYCLE_WRITE_CALLBACK_ID = 1;
 constexpr bool flag_simulation = true;
 // constexpr const bool flag_simulation = false;
 
@@ -31,7 +32,6 @@ constexpr std::array<const char *, N_ROBOTS> SENSED_FORCES_KEYS = SIM_SENSED_FOR
 
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
-std::string oldPrimitive = PRIMITIVE_INDEPENDENT_TASK;
 std::string currentPrimitive = PRIMITIVE_INDEPENDENT_TASK;
 unsigned long long controller_counter = 0;
 RedisClient redis_client;
@@ -48,12 +48,22 @@ void sighandler(int)
     runloop = false;
 }
 
-
+////////////////////// TWO HAND TASK //////////////////////
 int two_hand_use_internal_force_flag;
+int two_hand_use_interpolation_pos_flag;
+int two_hand_use_interpolation_ori_flag;
+int two_hand_use_velocity_saturation_flag;
+double two_hand_interpolation_pos_max_vel;
+double two_hand_interpolation_pos_max_accel;
+double two_hand_interpolation_pos_max_jerk;
+double two_hand_interpolation_ori_max_vel;
+double two_hand_interpolation_ori_max_accel;
+double two_hand_interpolation_ori_max_jerk;
 std::vector<VectorXd> sensed_force_moments;
+Eigen::Vector3d desired_obj_ori_euler; // ZYX angles, stored XYZ
+
 void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, RedisClient& redis)
 {
-    // TODO: add more flags
     // initialize global variables
     two_hand_use_internal_force_flag = 0;
     for (int i = 0; i < N_ROBOTS; i++)
@@ -61,31 +71,160 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
         sensed_force_moments.push_back(VectorXd::Zero(robots[i]->dof()));
     }
 
+    desired_obj_ori_euler.setZero();
+    two_hand_use_interpolation_pos_flag = 1;
+    two_hand_use_interpolation_ori_flag = 1;
+    two_hand_use_velocity_saturation_flag = 0;
+    two_hand_interpolation_pos_max_vel = 0.3;
+    two_hand_interpolation_pos_max_accel = 0.6;
+    two_hand_interpolation_pos_max_jerk = 1.2;
+    two_hand_interpolation_ori_max_vel = M_PI / 4;
+    two_hand_interpolation_ori_max_accel = M_PI / 2;
+    two_hand_interpolation_ori_max_jerk = M_PI;
+
     // initialize two hand two robot task
     two_hand_task->_internal_force_control_flag = false;
+    two_hand_task->_use_interpolation_pos_flag = bool(two_hand_use_interpolation_pos_flag);
+    two_hand_task->_use_interpolation_ori_flag = bool(two_hand_use_interpolation_ori_flag);
+    two_hand_task->_use_velocity_saturation_flag = bool(two_hand_use_velocity_saturation_flag);
+
+#ifdef USING_OTG
+    two_hand_task->_otg_pos->setMaxVelocity(two_hand_interpolation_pos_max_vel);
+    two_hand_task->_otg_pos->setMaxAcceleration(two_hand_interpolation_pos_max_accel);
+    two_hand_task->_otg_pos->setMaxJerk(two_hand_interpolation_pos_max_jerk);
+    two_hand_task->_otg_ori->setMaxVelocity(two_hand_interpolation_ori_max_vel);
+    two_hand_task->_otg_ori->setMaxAcceleration(two_hand_interpolation_ori_max_accel);
+    two_hand_task->_otg_ori->setMaxJerk(two_hand_interpolation_ori_max_jerk);
+#endif
 
     // update values when we read all parameters on a new controller cycle
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KP_POS_KEY, two_hand_task->_kp_pos);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KV_POS_KEY, two_hand_task->_kv_pos);    
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KI_POS_KEY, two_hand_task->_ki_pos);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KP_ORI_KEY, two_hand_task->_kp_ori);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KV_ORI_KEY, two_hand_task->_kv_ori);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KI_ORI_KEY, two_hand_task->_ki_ori);
+
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KP_FORCE_KEY, two_hand_task->_kp_force);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KV_FORCE_KEY, two_hand_task->_kv_force);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KI_FORCE_KEY, two_hand_task->_ki_force);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KP_MOMENT_KEY, two_hand_task->_kp_moment);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KV_MOMENT_KEY, two_hand_task->_kv_moment);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KI_MOMENT_KEY, two_hand_task->_ki_moment);
+
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KP_INTERNAL_SEPARATION_KEY, two_hand_task->_kp_internal_separation);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KV_INTERNAL_SEPARATION_KEY, two_hand_task->_kv_internal_separation);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KP_INTERNAL_ORI_KEY, two_hand_task->_kp_internal_ori);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_KV_INTERNAL_ORI_KEY, two_hand_task->_kv_internal_ori);
+
+    redis.addIntToReadCallback(READ_CALLBACK_ID, TWO_HAND_USE_VEL_SAT_KEY, two_hand_use_velocity_saturation_flag);    
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_LINEAR_VEL_SAT_KEY, two_hand_task->_linear_saturation_velocity);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_ANGULAR_VEL_SAT_KEY, two_hand_task->_angular_saturation_velocity);
+
+    redis.addIntToReadCallback(READ_CALLBACK_ID, TWO_HAND_USE_INTERPOLATION_POS_KEY, two_hand_use_interpolation_pos_flag);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_INTERPOLATION_POS_MAX_VEL_KEY, two_hand_interpolation_pos_max_vel);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_INTERPOLATION_POS_MAX_ACCEL_KEY, two_hand_interpolation_pos_max_accel);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_INTERPOLATION_POS_MAX_JERK_KEY, two_hand_interpolation_pos_max_jerk);
+
+    redis.addIntToReadCallback(READ_CALLBACK_ID, TWO_HAND_USE_INTERPOLATION_ORI_KEY, two_hand_use_interpolation_ori_flag);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_INTERPOLATION_ORI_MAX_VEL_KEY, two_hand_interpolation_ori_max_vel);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_INTERPOLATION_ORI_MAX_ACCEL_KEY, two_hand_interpolation_ori_max_accel);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, TWO_HAND_INTERPOLATION_ORI_MAX_JERK_KEY, two_hand_interpolation_ori_max_jerk);    
+
     redis.addIntToReadCallback(READ_CALLBACK_ID, TWO_HAND_USE_INTERNAL_FORCE_KEY, two_hand_use_internal_force_flag);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, DESIRED_INTERNAL_SEPARATION_KEY, two_hand_task->_desired_internal_separation);
+    redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
+    redis.addDoubleToReadCallback(READ_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
+    redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
+    redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
 
     for (int i = 0; i < N_ROBOTS; i++)
     {
         redis.addEigenToReadCallback(READ_CALLBACK_ID, SENSED_FORCES_KEYS[i], sensed_force_moments[i]);
     }
     
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KP_POS_KEY, two_hand_task->_kp_pos);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KV_POS_KEY, two_hand_task->_kv_pos);    
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KI_POS_KEY, two_hand_task->_ki_pos);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KP_ORI_KEY, two_hand_task->_kp_ori);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KV_ORI_KEY, two_hand_task->_kv_ori);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KI_ORI_KEY, two_hand_task->_ki_ori);
+
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KP_FORCE_KEY, two_hand_task->_kp_force);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KV_FORCE_KEY, two_hand_task->_kv_force);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KI_FORCE_KEY, two_hand_task->_ki_force);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KP_MOMENT_KEY, two_hand_task->_kp_moment);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KV_MOMENT_KEY, two_hand_task->_kv_moment);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KI_MOMENT_KEY, two_hand_task->_ki_moment);
+
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KP_INTERNAL_SEPARATION_KEY, two_hand_task->_kp_internal_separation);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KV_INTERNAL_SEPARATION_KEY, two_hand_task->_kv_internal_separation);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KP_INTERNAL_ORI_KEY, two_hand_task->_kp_internal_ori);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_KV_INTERNAL_ORI_KEY, two_hand_task->_kv_internal_ori);
+
+    redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_VEL_SAT_KEY, two_hand_use_velocity_saturation_flag);    
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_LINEAR_VEL_SAT_KEY, two_hand_task->_linear_saturation_velocity);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_ANGULAR_VEL_SAT_KEY, two_hand_task->_angular_saturation_velocity);
+
+    redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_INTERPOLATION_POS_KEY, two_hand_use_interpolation_pos_flag);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_INTERPOLATION_POS_MAX_VEL_KEY, two_hand_interpolation_pos_max_vel);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_INTERPOLATION_POS_MAX_ACCEL_KEY, two_hand_interpolation_pos_max_accel);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_INTERPOLATION_POS_MAX_JERK_KEY, two_hand_interpolation_pos_max_jerk);
+
+    redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_INTERPOLATION_ORI_KEY, two_hand_use_interpolation_ori_flag);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_INTERPOLATION_ORI_MAX_VEL_KEY, two_hand_interpolation_ori_max_vel);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_INTERPOLATION_ORI_MAX_ACCEL_KEY, two_hand_interpolation_ori_max_accel);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_INTERPOLATION_ORI_MAX_JERK_KEY, two_hand_interpolation_ori_max_jerk);    
+
     redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_INTERNAL_FORCE_KEY, two_hand_use_internal_force_flag);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_SEPARATION_KEY, two_hand_task->_desired_internal_separation);
+    redis.addEigenToReadCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
+    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
+    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
+
+    redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_INTERNAL_FORCE_KEY, two_hand_use_internal_force_flag);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_SEPARATION_KEY, two_hand_task->_desired_internal_separation);
+    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
+    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
+    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
+    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
 }
 
 void update_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task)
 {
-    // TODO
+    two_hand_task->_internal_force_control_flag = bool(two_hand_use_internal_force_flag);
+    two_hand_task->_use_interpolation_pos_flag = bool(two_hand_use_interpolation_pos_flag);
+    two_hand_task->_use_interpolation_ori_flag = bool(two_hand_use_interpolation_ori_flag);
+    two_hand_task->_use_velocity_saturation_flag = bool(two_hand_use_velocity_saturation_flag);
+#ifdef USING_OTG
+    two_hand_task->_otg_pos->setMaxVelocity(two_hand_interpolation_pos_max_vel);
+    two_hand_task->_otg_pos->setMaxAcceleration(two_hand_interpolation_pos_max_accel);
+    two_hand_task->_otg_pos->setMaxJerk(two_hand_interpolation_pos_max_jerk);
+    two_hand_task->_otg_ori->setMaxVelocity(two_hand_interpolation_ori_max_vel);
+    two_hand_task->_otg_ori->setMaxAcceleration(two_hand_interpolation_ori_max_accel);
+    two_hand_task->_otg_ori->setMaxJerk(two_hand_interpolation_ori_max_jerk);
+#endif
 
-    // XXX: is this only valid when internal_force is true?
     if (two_hand_task->_internal_force_control_flag)
-    {
+    { 
+        Affine3d T_world_com = Affine3d::Identity();
+        T_world_com.linear() = two_hand_task->_current_object_orientation;
+        T_world_com.translation() = two_hand_task->_current_object_position;
+        two_hand_task->setObjectMassPropertiesAndInitialInertialFrameLocation(1.0, T_world_com, 0.1 * Matrix3d::Identity());
+
+
         two_hand_task->updateSensedForcesAndMoments(
             sensed_force_moments[0].head(3), sensed_force_moments[0].tail(3),
             sensed_force_moments[1].head(3), sensed_force_moments[1].tail(3)
         );
+
+        Matrix3d desired_rmat;
+        desired_rmat = Eigen::AngleAxisd(desired_obj_ori_euler(2), Eigen::Vector3d::UnitZ())
+                     * Eigen::AngleAxisd(desired_obj_ori_euler(1), Eigen::Vector3d::UnitY())
+                     * Eigen::AngleAxisd(desired_obj_ori_euler(0), Eigen::Vector3d::UnitX());
+
+        two_hand_task->_desired_object_orientation = desired_rmat;
     }
 }
 
@@ -99,6 +238,7 @@ int main()
     // set up redis callbacks
     redis_client.createReadCallback(READ_CALLBACK_ID);
     redis_client.createWriteCallback(INIT_WRITE_CALLBACK_ID);
+    redis_client.createWriteCallback(CYCLE_WRITE_CALLBACK_ID);
 
     // set up signal handler
     signal(SIGABRT, &sighandler);
@@ -146,6 +286,8 @@ int main()
     std::vector<VectorXd> posori_torques;
     std::vector<VectorXd> coriolis;
     std::vector<VectorXd> two_hand_torques;
+    std::vector<Vector3d> current_ee_pos;
+    std::vector<Vector3d> current_ee_vel;
 
     const std::string link_name = "link7";
     const Eigen::Vector3d pos_in_link = Vector3d(0.0, 0.0, 0.125);
@@ -169,6 +311,18 @@ int main()
         posori_torques.push_back(VectorXd::Zero(dof));
         coriolis.push_back(VectorXd::Zero(dof));
         two_hand_torques.push_back(VectorXd::Zero(dof));
+
+        current_ee_pos.push_back(Vector3d::Zero());
+        current_ee_vel.push_back(Vector3d::Zero());
+    }
+
+    // initialize logging variables & command_torque writes
+    for (int i = 0; i < N_ROBOTS; i++)
+    {
+        redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, JOINT_TORQUES_COMMANDED_KEYS[i], command_torques[i]);
+
+        redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, CURRENT_EE_POS_KEYS[i], current_ee_pos[i]);
+        redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, CURRENT_EE_VEL_KEYS[i], current_ee_vel[i]);
     }
 
     // two hand task
@@ -233,7 +387,7 @@ int main()
         current_time = timer.elapsedTime() - start_time;
         dt = current_time - prev_time;
 
-        oldPrimitive = currentPrimitive;
+        std::string oldPrimitive = currentPrimitive;
         redis_client.executeReadCallback(READ_CALLBACK_ID);
 
         update_two_handed_task(two_hand_task.get());
@@ -281,6 +435,8 @@ int main()
                 {
                     joint_tasks[i]->reInitializeTask();
                 }
+
+                redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
             }
         }
 
@@ -321,23 +477,16 @@ int main()
         }
 
         // -------------------------------------------
-        for (int i = 0; i < N_ROBOTS; i++)
+        // log current EE position and velocity to redis
+        for (int i = 0; i < N_ROBOTS; i++) 
         {
-            redis_client.setEigenMatrixJSON(JOINT_TORQUES_COMMANDED_KEYS[i], command_torques[i]);
+            robots[i]->position(current_ee_pos[i], link_name, pos_in_link);
+            robots[i]->linearVelocity(current_ee_vel[i], link_name, pos_in_link);
         }
 
-#if false
-        // fix -> needs to be per robot, but should pipeline
-        // log current EE position and velocity to redis
-        Vector3d current_pos;
-        robots[i]->position(current_pos, link_name, pos_in_link);
+        // write command_torques, current_ee_pos, current_ee_vel
+        redis_client.executeWriteCallback(CYCLE_WRITE_CALLBACK_ID);
 
-        Vector3d current_vel;
-        robots[i]->linearVelocity(current_vel, link_name, pos_in_link);
-
-        redis_client.setEigenMatrixJSON(CURRENT_EE_POS_KEY, current_pos);
-        redis_client.setEigenMatrixJSON(CURRENT_EE_VEL_KEY, current_vel);
-#endif 
         // -------------------------------------------
         if (controller_counter % 500 == 0)
         {
