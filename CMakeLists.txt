@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8.12)
 project (SAI2-EXAMPLES)
-SET(CMAKE_CXX_FLAGS "-std=c++14")
+SET(CMAKE_CXX_FLAGS "-std=c++14 -I/usr/include -I/usr/local/include")
 #SET(CMAKE_BUILD_TYPE "Release")
 SET(CMAKE_BUILD_TYPE "Debug")
 
