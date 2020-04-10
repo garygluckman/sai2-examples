@@ -60,7 +60,6 @@ double two_hand_interpolation_ori_max_vel;
 double two_hand_interpolation_ori_max_accel;
 double two_hand_interpolation_ori_max_jerk;
 std::vector<VectorXd> sensed_force_moments;
-Eigen::Vector3d desired_obj_ori_euler; // ZYX angles, stored XYZ
 
 void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, RedisClient& redis)
 {
@@ -71,7 +70,6 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
         sensed_force_moments.push_back(VectorXd::Zero(robots[i]->dof()));
     }
 
-    desired_obj_ori_euler.setZero();
     two_hand_use_interpolation_pos_flag = 1;
     two_hand_use_interpolation_ori_flag = 1;
     two_hand_use_velocity_saturation_flag = 0;
@@ -136,7 +134,7 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
     redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
     redis.addDoubleToReadCallback(READ_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
     redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
-    redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
+    redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, two_hand_task->_desired_object_orientation);
 
     for (int i = 0; i < N_ROBOTS; i++)
     {
@@ -181,14 +179,7 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
     redis.addEigenToReadCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
     redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
     redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
-    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
-
-    redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_INTERNAL_FORCE_KEY, two_hand_use_internal_force_flag);
-    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_SEPARATION_KEY, two_hand_task->_desired_internal_separation);
-    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
-    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
-    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
-    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
+    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, two_hand_task->_desired_object_orientation);
 }
 
 void update_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task)
@@ -218,13 +209,6 @@ void update_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task)
             sensed_force_moments[0].head(3), sensed_force_moments[0].tail(3),
             sensed_force_moments[1].head(3), sensed_force_moments[1].tail(3)
         );
-
-        Matrix3d desired_rmat;
-        desired_rmat = Eigen::AngleAxisd(desired_obj_ori_euler(2), Eigen::Vector3d::UnitZ())
-                     * Eigen::AngleAxisd(desired_obj_ori_euler(1), Eigen::Vector3d::UnitY())
-                     * Eigen::AngleAxisd(desired_obj_ori_euler(0), Eigen::Vector3d::UnitX());
-
-        two_hand_task->_desired_object_orientation = desired_rmat;
     }
 }
 
@@ -320,7 +304,6 @@ int main()
     for (int i = 0; i < N_ROBOTS; i++)
     {
         redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, JOINT_TORQUES_COMMANDED_KEYS[i], command_torques[i]);
-
         redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, CURRENT_EE_POS_KEYS[i], current_ee_pos[i]);
         redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, CURRENT_EE_VEL_KEYS[i], current_ee_vel[i]);
     }
@@ -355,10 +338,8 @@ int main()
     // set desired position and orientation for posori tasks : needs to be in robot frame
     posori_tasks[0]->_desired_position = robot_pose_in_world[0].linear().transpose()*(robot1_desired_position_in_world - robot_pose_in_world[0].translation());
     posori_tasks[0]->_desired_orientation = robot_pose_in_world[0].linear().transpose()*robot1_desired_orientation_in_world;
-    posori_euler_angles[0] = posori_tasks[0]->_desired_orientation.eulerAngles(2, 1, 0).reverse();
     posori_tasks[1]->_desired_position = robot_pose_in_world[1].linear().transpose()*(robot2_desired_position_in_world - robot_pose_in_world[1].translation());
     posori_tasks[1]->_desired_orientation = robot_pose_in_world[1].linear().transpose()*robot2_desired_orientation_in_world;
-    posori_euler_angles[1] = posori_tasks[1]->_desired_orientation.eulerAngles(2, 1, 0).reverse();
 
     // initialization complete
     redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
@@ -422,10 +403,7 @@ int main()
                     auto posori_task = posori_tasks[i];
                     posori_task->reInitializeTask();
                     redis_client.setEigenMatrixJSON(DESIRED_POS_KEYS[i], posori_task->_current_position);
-
-                    // ZYX euler angles, but stored as XYZ
-                    Vector3d angles = posori_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
-                    redis_client.setEigenMatrixJSON(DESIRED_ORI_KEYS[i], angles);
+                    redis_client.setEigenMatrixJSON(DESIRED_ORI_KEYS[i], posori_task->_current_orientation);
                 }
             }
             else if (currentPrimitive == PRIMITIVE_COORDINATED_TASK)

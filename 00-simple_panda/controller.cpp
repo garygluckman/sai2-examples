@@ -68,25 +68,19 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
 
 ////////////////// POSORI TASK VARIABLES //////////////////
 int posori_use_velocity_saturation;
-Eigen::Vector3d posori_euler_angles;
 Eigen::Vector2d posori_velocity_saturation;
 
 void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redis_client)
 {
-    Matrix3d initial_orientation;
     Vector3d initial_position;
     Vector3d initial_velocity;
 
     int dof = posori_task->_robot->dof();
-    posori_task->_robot->rotation(initial_orientation, posori_task->_link_name);
     posori_task->_robot->position(initial_position, posori_task->_link_name, posori_task->_control_frame.translation());
     posori_task->_robot->linearVelocity(initial_velocity, posori_task->_link_name, posori_task->_control_frame.translation());
 
     // initialize global variables
     posori_use_velocity_saturation = 0;
-
-    // we are doing ZYX, but we store XYZ
-    posori_euler_angles = initial_orientation.eulerAngles(2, 1, 0).reverse();
 
     // initialize posori_task object
     posori_task->_use_interpolation_flag = false;
@@ -106,8 +100,7 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, VEL_SAT_POSORI_KEY, posori_velocity_saturation);
     redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KP_POS_KEY, posori_task->_kp_pos);
     redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KV_POS_KEY, posori_task->_kv_pos);
-    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position); 
-    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_ORI_KEY, posori_euler_angles);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position);
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 
     // update redis for initial conditions and any controller-induced changes
@@ -115,8 +108,7 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, VEL_SAT_POSORI_KEY, posori_velocity_saturation);
     redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KP_POS_KEY, posori_task->_kp_pos);
     redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, KV_POS_KEY, posori_task->_kv_pos);
-    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position); 
-    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_ORI_KEY, posori_euler_angles);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position);
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 }
 
@@ -127,12 +119,6 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
     posori_task->_use_velocity_saturation_flag = bool(posori_use_velocity_saturation);
     posori_task->_linear_saturation_velocity = posori_velocity_saturation(0);
     posori_task->_angular_saturation_velocity = posori_velocity_saturation(1);
-
-    Matrix3d desired_rmat;
-    desired_rmat = Eigen::AngleAxisd(posori_euler_angles(2), Eigen::Vector3d::UnitZ())
-                 * Eigen::AngleAxisd(posori_euler_angles(1), Eigen::Vector3d::UnitY())
-                 * Eigen::AngleAxisd(posori_euler_angles(0), Eigen::Vector3d::UnitX());
-    posori_task->_desired_orientation = desired_rmat;
 }
 
 int main(int argc, char **argv) 
@@ -241,10 +227,6 @@ int main(int argc, char **argv)
             {
                 posori_task->reInitializeTask();
                 redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, posori_task->_current_position);
-
-                // ZYX euler angles, but stored as XYZ
-                Vector3d angles = posori_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
-                redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, angles);
             }
         }
 

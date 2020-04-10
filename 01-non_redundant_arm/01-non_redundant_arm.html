@@ -166,10 +166,9 @@
             <sai2-interfaces-slider key="sai2::examples::desired_position" display='["X", "Y", "Z"]'
               min="[-0.6,-0.6,0.3]" max="[0.6,0.6,1.5]" step="0.01">
             </sai2-interfaces-slider>
-            <h2>Desired Orientation <br>(XYZ Fixed Angles)</h2>
-            <sai2-interfaces-slider key="sai2::examples::desired_orientation" display='["X (γ)", "Y (β)", "Z (α)"]'
-              min="-6.28" max="6.28" step="0.01">
-            </sai2-interfaces-slider>
+            <h2>Desired Relative Orientation <br>(XYZ Fixed Angles)</h2>
+            <sai2-interfaces-orientation key="sai2::examples::desired_orientation" refreshRate="1">
+            </sai2-interfaces-orientation>
           </div>
           <div class="col center">
             <h2>Gains</h2>

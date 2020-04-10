@@ -159,7 +159,6 @@ double posori_interpolation_max_angular_acceleration;
 double posori_interpolation_max_angular_jerk;
 int posori_use_velocity_saturation;
 int posori_use_isotropic_gains;
-Eigen::Vector3d posori_euler_angles;
 Eigen::Vector2d posori_velocity_saturation;
 Eigen::Vector3d posori_kp_nonisotropic;
 Eigen::Vector3d posori_kv_nonisotropic;
@@ -194,9 +193,6 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_interpolation_max_angular_jerk = 3 * M_PI;
     posori_velocity_saturation(0) = posori_task->_linear_saturation_velocity;
     posori_velocity_saturation(1) = posori_task->_angular_saturation_velocity;
-
-    // we are doing ZYX, but we store XYZ
-    posori_euler_angles = initial_orientation.eulerAngles(2, 1, 0).reverse();
 
     // initialize posori_task object
     posori_task->_use_interpolation_flag = bool(posori_use_interpolation);
@@ -246,7 +242,7 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_ISOTROPIC_POS_GAINS_KEY, posori_use_isotropic_gains);
     redis_client.addStringToReadCallback(READ_CALLBACK_ID, DYN_DEC_POSORI_KEY, posori_dynamic_decoupling_mode);
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position); 
-    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_ORI_KEY, posori_euler_angles);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_ORI_KEY, posori_task->_desired_orientation);
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 
     // update redis for initial conditions and any controller-induced changes
@@ -271,7 +267,7 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, USE_ISOTROPIC_POS_GAINS_KEY, posori_use_isotropic_gains);
     redis_client.addStringToWriteCallback(INIT_WRITE_CALLBACK_ID, DYN_DEC_POSORI_KEY, posori_dynamic_decoupling_mode);
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position); 
-    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_ORI_KEY, posori_euler_angles);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_ORI_KEY, posori_task->_desired_orientation);
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 }
 
@@ -326,12 +322,6 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
     posori_task->_use_isotropic_gains_position = bool(posori_use_isotropic_gains);
     posori_task->_linear_saturation_velocity = posori_velocity_saturation(0);
     posori_task->_angular_saturation_velocity = posori_velocity_saturation(1);
-
-    Matrix3d desired_rmat;
-    desired_rmat = Eigen::AngleAxisd(posori_euler_angles(2), Eigen::Vector3d::UnitZ())
-                * Eigen::AngleAxisd(posori_euler_angles(1), Eigen::Vector3d::UnitY())
-                * Eigen::AngleAxisd(posori_euler_angles(0), Eigen::Vector3d::UnitX());
-    posori_task->_desired_orientation = desired_rmat;
 
     if (posori_dynamic_decoupling_mode == "full")
         posori_task->setDynamicDecouplingFull();
@@ -441,10 +431,7 @@ int main(int argc, char **argv)
             {
                 posori_task->reInitializeTask();
                 redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, posori_task->_current_position);
-
-                // ZYX euler angles, but stored as XYZ
-                Vector3d angles = posori_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
-                redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, angles);
+                redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, posori_task->_current_orientation);
             }
         }
 
