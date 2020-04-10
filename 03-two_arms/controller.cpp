@@ -10,6 +10,7 @@
 #include <csignal>
 #include <vector>
 #include <memory>
+#include <mutex>
 
 #include "keys.h"
 #include "panda.h"
@@ -40,7 +41,8 @@ std::vector<std::shared_ptr<Sai2Model::Sai2Model>> robots;
 std::vector<std::shared_ptr<Sai2Primitives::JointTask>> joint_tasks;
 std::vector<std::shared_ptr<Sai2Primitives::PosOriTask>> posori_tasks;
 std::shared_ptr<Sai2Primitives::TwoHandTwoRobotsTask> two_hand_task;
-
+std::vector<VectorXd> coriolis;
+std::mutex model_mutex; 
 
 ////////////////////// FUNCTIONS //////////////////////
 void sighandler(int)
@@ -176,7 +178,7 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
 
     redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_INTERNAL_FORCE_KEY, two_hand_use_internal_force_flag);
     redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_SEPARATION_KEY, two_hand_task->_desired_internal_separation);
-    redis.addEigenToReadCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
+    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
     redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
     redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
     redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, two_hand_task->_desired_object_orientation);
@@ -268,7 +270,6 @@ int main()
     std::vector<VectorXd> command_torques;    
     std::vector<VectorXd> joint_torques;
     std::vector<VectorXd> posori_torques;
-    std::vector<VectorXd> coriolis;
     std::vector<VectorXd> two_hand_torques;
     std::vector<Vector3d> current_ee_pos;
     std::vector<Vector3d> current_ee_vel;
@@ -371,28 +372,14 @@ int main()
         std::string oldPrimitive = currentPrimitive;
         redis_client.executeReadCallback(READ_CALLBACK_ID);
 
-        update_two_handed_task(two_hand_task.get());
+        std::lock_guard<std::mutex> lock(model_mutex);
 
-        // read robot state from redis and update robot model
         for (int i = 0; i < N_ROBOTS; i++)
         {
             update_posori_task(posori_tasks[i].get(), i);
-
-            if (flag_simulation)
-            {
-                robots[i]->updateModel();
-                robots[i]->coriolisForce(coriolis[i]);
-            }
-            else
-            {
-                robots[i]->updateKinematics();
-                robots[i]->_M = redis_client.getEigenMatrixJSON(MASSMATRIX_KEYS[i]);
-                robots[i]->_M_inv = robots[i]->_M.inverse();
-                coriolis[i] = redis_client.getEigenMatrixJSON(CORIOLIS_KEYS[i]);
-            }
-
-            robots[i]->coriolisForce(coriolis[i]);
         }
+
+        update_two_handed_task(two_hand_task.get());
 
         if (currentPrimitive != oldPrimitive)
         {
@@ -529,9 +516,25 @@ void updateModelThread()
     while (runloop)
     {
         timer.waitForNextLoop();
+
+        std::lock_guard<std::mutex> lock(model_mutex);
+
+        // read robot state from redis and update robot model
         for (int i = 0; i < N_ROBOTS; i++)
         {
-            robots[i]->updateModel();
+            if (flag_simulation)
+            {
+                robots[i]->updateModel();
+            }
+            else
+            {
+                robots[i]->updateKinematics();
+                robots[i]->_M = redis_client.getEigenMatrixJSON(MASSMATRIX_KEYS[i]);
+                robots[i]->_M_inv = robots[i]->_M.inverse();
+                coriolis[i] = redis_client.getEigenMatrixJSON(CORIOLIS_KEYS[i]);
+            }
+
+            robots[i]->coriolisForce(coriolis[i]);
         }
 
         if (currentPrimitive == PRIMITIVE_INDEPENDENT_TASK)

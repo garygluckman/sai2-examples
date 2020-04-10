@@ -341,6 +341,15 @@
                   <sai2-interfaces-slider key="sai2::examples::two_hand_ori_interpolation_max_jerk"
                     display="OTG Max Jerk" min="0.01" max="12.56" step="0.01">
                   </sai2-interfaces-slider>
+                <sai2-interfaces-accordion key="sai2::examples::two_hand_use_velocity_saturation"
+                  displayName="Use Velocity Saturation">
+                  <sai2-interfaces-slider key="sai2::examples::two_hand_linear_velocity_sat"
+                    display="Max Linear Velocity" min="0.01" max="5" step="0.01">
+                  </sai2-interfaces-slider>
+                  <sai2-interfaces-slider key="sai2::examples::two_hand_angular_velocity_sat"
+                    display="Max Angular Velocity" min="0.01" max="5" step="0.01">
+                  </sai2-interfaces-slider>
+                </sai2-interfaces-accordion>
                 </sai2-interfaces-accordion>                          
               </div>
             </sai2-interfaces-toggle-group-enabled>
@@ -372,15 +381,6 @@
               </div>
             </sai2-interfaces-toggle-group-disabled>
           </sai2-interfaces-toggle-group>
-          <sai2-interfaces-accordion key="sai2::examples::two_hand_use_velocity_saturation"
-            displayName="Use Velocity Saturation">
-            <sai2-interfaces-slider key="sai2::examples::two_hand_linear_velocity_sat"
-              display="Max Linear Velocity" min="0.01" max="5" step="0.01">
-            </sai2-interfaces-slider>
-            <sai2-interfaces-slider key="sai2::examples::two_hand_angular_velocity_sat"
-              display="Max Angular Velocity" min="0.01" max="5" step="0.01">
-            </sai2-interfaces-slider>
-          </sai2-interfaces-accordion>
         </sai2-interfaces-select-option>
 
         <sai2-interfaces-select-option name="Floating" key="primitive_floating_task" class="grid-half module">
