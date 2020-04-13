@@ -17,7 +17,7 @@ make
 Binaries will placed in the `bin/` folder. Inside, you should see something like:
 ```
 sai2-examples/bin/01-non_redundant_arm$ ls
-01-non_redundant_arm.html  controller01  interface  resources  simviz01
+01-non_redundant_arm.html  controller01  interface  launch.sh resources simviz01
 ```
 
 To fully start this example, run the following commands in separate terminal windows:
