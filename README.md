@@ -22,7 +22,7 @@ sai2-examples/bin/01-non_redundant_arm$ ls
 
 To fully start this example, run the following commands in separate terminal windows:
 ```
-python3 interface/server.py start 01-non_redundant_arm.html
+python3 interface/server.py 01-non_redundant_arm.html
 ./simviz01
 ./controller01
 ```
