@@ -1,16 +1,19 @@
+#include <iostream>
+#include <string>
+#include <thread>
+#include <cmath>
+#include <csignal>
+
 #include "Sai2Model.h"
 #include "Sai2Graphics.h"
 #include "Sai2Simulation.h"
+#include "uiforce/UIForceWidget.h"
 #include <dynamics3d.h>
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
 #include "force_sensor/ForceSensorSim.h"
 
 #include <GLFW/glfw3.h> //must be loaded after loading opengl/glew
-
-#include <iostream>
-#include <string>
-#include <csignal>
 
 #include "keys.h"
 
@@ -33,6 +36,8 @@ constexpr const char *sim_title = "SAI2.0 - Two Arms";
 
 RedisClient redis_client;
 std::vector<std::shared_ptr<Sai2Model::Sai2Model>> robots;
+std::vector<std::shared_ptr<UIForceWidget>> ui_force_widgets;
+std::vector<bool> fRobotLinkSelect;
 std::vector<Object> objects;
 
 // flags for scene camera movement
@@ -95,6 +100,15 @@ int main()
             sim->getRobotBaseTransform(ROBOT_NAMES[i]),
             world_gravity
         ));
+
+        ui_force_widgets.push_back(std::make_shared<UIForceWidget>(
+            ROBOT_NAMES[i],
+            robots[i].get(),
+            graphics
+        ));
+
+        ui_force_widgets[i]->setEnable(false);
+        fRobotLinkSelect.push_back(false);
     }
 
     // read joint positions, velocities, update model
@@ -242,6 +256,33 @@ int main()
         }
         graphics->setCameraPose(camera_name, camera_pos, cam_up_axis, camera_lookat);
         glfwGetCursorPos(window, &last_cursorx, &last_cursory);
+
+        for (int i = 0; i < N_ROBOTS; i++)
+        {
+            ui_force_widgets[i]->setEnable(fRobotLinkSelect[i]);
+            if (fRobotLinkSelect[i])
+            {
+                double cursorx, cursory;
+                int wwidth_scr, wheight_scr;
+                int wwidth_pix, wheight_pix;
+                std::string ret_link_name;
+                Eigen::Vector3d ret_pos;
+
+                // get current cursor position
+                glfwGetCursorPos(window, &cursorx, &cursory);
+
+                glfwGetWindowSize(window, &wwidth_scr, &wheight_scr);
+                glfwGetFramebufferSize(window, &wwidth_pix, &wheight_pix);
+
+                int viewx = floor(cursorx / wwidth_scr * wwidth_pix);
+                int viewy = floor(cursory / wheight_scr * wheight_pix); 
+
+                if(!ui_force_widgets[i]->setInteractionParams(camera_name, viewx, wheight_pix - viewy, wwidth_pix, wheight_pix))
+                {
+                    fRobotLinkSelect[i] = false;
+                }
+            }
+        }
     }
 
     // stop simulation
@@ -296,6 +337,12 @@ void simulation(Simulation::Sai2Simulation *sim)
         fsensors[i]->enableFilter(0.01);
     }
 
+	std::vector<Eigen::VectorXd> ui_force_command_torques;
+    for (int i = 0; i < N_ROBOTS; i++)
+    {
+        ui_force_command_torques.push_back(Eigen::VectorXd::Zero(robots[i]->dof()));
+    }
+
     // create a timer
     double simulation_freq = 1000.0;
     LoopTimer timer;
@@ -319,7 +366,16 @@ void simulation(Simulation::Sai2Simulation *sim)
             // set robot torques to simulation
             VectorXd gravity_torques = VectorXd::Zero(robots[i]->dof());
             robots[i]->gravityVector(gravity_torques);
-            sim->setJointTorques(ROBOT_NAMES[i], robot_command_torques[i] + gravity_torques);
+
+            if (fRobotLinkSelect[i])
+            {
+                ui_force_widgets[i]->getUIJointTorques(ui_force_command_torques[i]);
+                sim->setJointTorques(ROBOT_NAMES[i], robot_command_torques[i] + gravity_torques + ui_force_command_torques[i]);
+            }
+            else 
+            {
+                sim->setJointTorques(ROBOT_NAMES[i], robot_command_torques[i] + gravity_torques);
+            }                
         }
 
         // integrate forward
@@ -425,6 +481,10 @@ void mouseClick(GLFWwindow *window, int button, int action, int mods)
     // if right click: don't handle. this is for menu selection
     case GLFW_MOUSE_BUTTON_RIGHT:
         //TODO: menu
+        for (int i = 0; i < N_ROBOTS; i++)
+        {
+            fRobotLinkSelect[i] = set;
+        }
         break;
     // if middle click: don't handle. doesn't work well on laptops
     case GLFW_MOUSE_BUTTON_MIDDLE:
