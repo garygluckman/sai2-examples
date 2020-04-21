@@ -23,6 +23,7 @@ constexpr int READ_CALLBACK_ID = 0;
 constexpr int CYCLE_WRITE_CALLBACK_ID = 1;
 constexpr bool flag_simulation = true;
 // constexpr const bool flag_simulation = false;
+constexpr double FLOATING_TASK_KV = 2.5;
 
 ////////////////// ACTUAL REDIS KEYS //////////////////
 constexpr std::array<const char *, N_ROBOTS> JOINT_ANGLES_KEYS = (flag_simulation) ? SIM_JOINT_ANGLES_KEYS : HW_JOINT_ANGLES_KEYS;
@@ -41,6 +42,7 @@ std::vector<std::shared_ptr<Sai2Model::Sai2Model>> robots;
 std::vector<std::shared_ptr<Sai2Primitives::JointTask>> joint_tasks;
 std::vector<std::shared_ptr<Sai2Primitives::PosOriTask>> posori_tasks;
 std::shared_ptr<Sai2Primitives::TwoHandTwoRobotsTask> two_hand_task;
+std::vector<std::shared_ptr<Sai2Primitives::JointTask>> floating_tasks;
 std::vector<VectorXd> coriolis;
 std::mutex model_mutex; 
 
@@ -66,7 +68,7 @@ std::vector<VectorXd> sensed_force_moments;
 void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, RedisClient& redis)
 {
     // initialize global variables
-    two_hand_use_internal_force_flag = 0;
+    two_hand_use_internal_force_flag = 1;
     for (int i = 0; i < N_ROBOTS; i++)
     {
         sensed_force_moments.push_back(VectorXd::Zero(robots[i]->dof()));
@@ -284,12 +286,18 @@ int main()
 
         auto joint_task = std::make_shared<Sai2Primitives::JointTask>(robot);
         auto posori_task = std::make_shared<Sai2Primitives::PosOriTask>(robot, link_name, pos_in_link);
+        auto floating_task = std::make_shared<Sai2Primitives::JointTask>(robot);
 
         init_joint_task(joint_task.get(), redis_client, i, READ_CALLBACK_ID, INIT_WRITE_CALLBACK_ID);
         init_posori_task(posori_task.get(), redis_client, i, READ_CALLBACK_ID, INIT_WRITE_CALLBACK_ID);
 
+        floating_task->_kp = 0;
+        floating_task->_kv = FLOATING_TASK_KV;
+        floating_task->_use_interpolation_flag = false;
+
         joint_tasks.push_back(joint_task);
         posori_tasks.push_back(posori_task);
+        floating_tasks.push_back(floating_task);
 
         command_torques.push_back(VectorXd::Zero(dof));
         joint_torques.push_back(VectorXd::Zero(dof));
@@ -336,11 +344,11 @@ int main()
     robot1_desired_orientation_in_world << 1, 0, 0, 0, 0, 1, 0, -1, 0;
     robot2_desired_orientation_in_world << 1, 0, 0, 0, 0, -1, 0, 1, 0;
 
-    // set desired position and orientation for posori tasks : needs to be in robot frame
-    posori_tasks[0]->_desired_position = robot_pose_in_world[0].linear().transpose()*(robot1_desired_position_in_world - robot_pose_in_world[0].translation());
-    posori_tasks[0]->_desired_orientation = robot_pose_in_world[0].linear().transpose()*robot1_desired_orientation_in_world;
-    posori_tasks[1]->_desired_position = robot_pose_in_world[1].linear().transpose()*(robot2_desired_position_in_world - robot_pose_in_world[1].translation());
-    posori_tasks[1]->_desired_orientation = robot_pose_in_world[1].linear().transpose()*robot2_desired_orientation_in_world;
+    // set desired position and orientation for posori tasks : needs to be in world frame
+    //posori_tasks[0]->_desired_position = robot_pose_in_world[0].linear().transpose()*(robot1_desired_position_in_world - robot_pose_in_world[0].translation());
+    //posori_tasks[0]->_desired_orientation = robot_pose_in_world[0].linear().transpose()*robot1_desired_orientation_in_world;
+    //posori_tasks[1]->_desired_position = robot_pose_in_world[1].linear().transpose()*(robot2_desired_position_in_world - robot_pose_in_world[1].translation());
+    //posori_tasks[1]->_desired_orientation = robot_pose_in_world[1].linear().transpose()*robot2_desired_orientation_in_world;
 
     // initialization complete
     redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
@@ -403,6 +411,14 @@ int main()
 
                 redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
             }
+            else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+            {
+                for (int i = 0; i < N_ROBOTS; i++)
+                {
+                    auto floating_task = floating_tasks[i];
+                    floating_task->reInitializeTask();
+                }
+            }
         }
 
         // steady-state operations for each task
@@ -437,7 +453,9 @@ int main()
         {
             for (int i = 0; i < N_ROBOTS; i++)
             {
-                command_torques[i].setZero(robots[i]->dof());
+                Eigen::VectorXd floating_task_torques;
+                floating_tasks[i]->computeTorques(floating_task_torques);
+                command_torques[i] = floating_task_torques + coriolis[i];
             }
         }
 
@@ -561,6 +579,16 @@ void updateModelThread()
             for (int i = 0; i < N_ROBOTS; i++)
             {
                 joint_tasks[i]->updateTaskModel(N_prec[i]);
+            }
+        }
+        else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+        {
+            for (int i = 0; i < N_ROBOTS; i++)
+            {
+                N_prec[i].setIdentity();
+                auto floating_task = floating_tasks[i];
+                const int dof = floating_task->_robot->dof();
+                floating_task->updateTaskModel(N_prec[i]);
             }
         }
     }

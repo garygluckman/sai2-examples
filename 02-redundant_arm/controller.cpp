@@ -20,6 +20,7 @@ constexpr int INIT_WRITE_CALLBACK_ID = 0;
 constexpr int READ_CALLBACK_ID = 0;
 constexpr bool flag_simulation = true;
 // constexpr const bool flag_simulation = false;
+constexpr double FLOATING_TASK_KV = 2.5;
 
 // redis keys
 constexpr const char *JOINT_ANGLES_KEY = (flag_simulation) ? SIM_JOINT_ANGLES_KEY : HW_JOINT_ANGLES_KEY;
@@ -385,6 +386,11 @@ int main(int argc, char **argv)
     Sai2Primitives::JointTask *joint_task = new Sai2Primitives::JointTask(robot);
     init_joint_task(joint_task, redis_client);
 
+    Sai2Primitives::JointTask *floating_task = new Sai2Primitives::JointTask(robot);
+    floating_task->_kp = 0;
+    floating_task->_kv = FLOATING_TASK_KV;
+    floating_task->_use_interpolation_flag = false;
+
     // initialization complete
     redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
     redis_client.set(CONTROL_STATE_KEY, CONTROL_STATE_INITIALIZED);
@@ -447,6 +453,11 @@ int main(int argc, char **argv)
                 redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, posori_task->_current_position);
                 redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, posori_task->_current_orientation);
             }
+            else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+            {
+                floating_task->_current_position = robot->_q;
+                floating_task->reInitializeTask();
+            }
         }
 
         // steady-state operations for each task
@@ -478,7 +489,10 @@ int main(int argc, char **argv)
         }
         else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
         {
-            command_torques.setZero(dof);
+            Eigen::VectorXd floating_task_torques;
+            floating_task->updateTaskModel(N_prec);
+            floating_task->computeTorques(floating_task_torques);
+            command_torques = floating_task_torques + coriolis;
         }
     
         // -------------------------------------------
@@ -500,7 +514,7 @@ int main(int argc, char **argv)
             std::cout << "current primitive: " << currentPrimitive << std::endl;
             if (currentPrimitive == PRIMITIVE_JOINT_TASK)
             {
-                std::cout << time << std::endl;
+                std::cout << curr_time << std::endl;
                 std::cout << "desired position : " << joint_task->_desired_position.transpose() << std::endl;
                 std::cout << "current position : " << joint_task->_current_position.transpose() << std::endl;
                 std::cout << "position error : " << (joint_task->_desired_position - joint_task->_current_position).norm() << std::endl;
@@ -508,11 +522,18 @@ int main(int argc, char **argv)
             }
             else if (currentPrimitive == PRIMITIVE_POSORI_TASK || currentPrimitive == PRIMITIVE_TRAJECTORY_TASK)
             {
-                std::cout << time << std::endl;
+                std::cout << curr_time << std::endl;
                 std::cout << "desired position : " << posori_task->_desired_position.transpose() << std::endl;
                 std::cout << "current position : " << posori_task->_current_position.transpose() << std::endl;
                 std::cout << "position error : " << (posori_task->_desired_position - posori_task->_current_position).norm() << std::endl;
                 std::cout << std::endl;
+            }
+            else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+            {
+                cout << curr_time << endl;
+                cout << "current velocity : " << floating_task->_current_velocity.transpose() << endl;
+                cout << "current velocity norm: " << floating_task->_current_velocity.norm() << endl;
+                cout << endl;
             }
         }
 
@@ -532,11 +553,9 @@ int main(int argc, char **argv)
     std::cout << "Control Loop updates   : " << timer.elapsedCycles() << std::endl;
     std::cout << "Control Loop frequency : " << timer.elapsedCycles()/end_time << "Hz" << std::endl;
 
-    if (robot)
-        delete robot;
-    if (joint_task)
-        delete joint_task;
-    if (posori_task)
-        delete posori_task;
+    delete robot;
+    delete joint_task;
+    delete posori_task;
+    delete floating_task;
     return 0;
 }
