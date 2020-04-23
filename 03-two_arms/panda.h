@@ -38,6 +38,8 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task,
 }
 
 ////////////////// POSORI TASK VARIABLES //////////////////
+std::array<Eigen::Vector3d, N_ROBOTS> posori_desired_position_world;
+std::array<Eigen::Matrix3d, N_ROBOTS> posori_desired_orientation_world;
 std::array<int, N_ROBOTS> posori_use_interpolation;
 std::array<double, N_ROBOTS> posori_interpolation_max_linear_velocity;
 std::array<double, N_ROBOTS> posori_interpolation_max_linear_acceleration;
@@ -63,7 +65,7 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task,
     posori_task->_robot->linearVelocity(initial_velocity, posori_task->_link_name, posori_task->_control_frame.translation());
 
     // initialize global variables
-    posori_use_interpolation[index] = 0;
+    posori_use_interpolation[index] = 1;
     posori_use_velocity_saturation[index] = 0;
     posori_velocity_saturation[index] = M_PI / 3.0 * Vector2d::Ones();
     posori_dynamic_decoupling_mode[index] = "full";
@@ -75,6 +77,8 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task,
     posori_interpolation_max_angular_jerk[index] = 3 * M_PI;
     posori_velocity_saturation[index](0) = posori_task->_linear_saturation_velocity;
     posori_velocity_saturation[index](1) = posori_task->_angular_saturation_velocity;
+    posori_desired_position_world[index] = initial_position;
+    posori_desired_orientation_world[index] = initial_orientation;
 
     // initialize posori_task object
     posori_task->_use_interpolation_flag = bool(posori_use_interpolation[index]);
@@ -113,8 +117,8 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task,
     redis_client.addDoubleToReadCallback(read_id, KV_ORI_KEYS[index], posori_task->_kv_ori);
     redis_client.addDoubleToReadCallback(read_id, KI_ORI_KEYS[index], posori_task->_ki_ori);
     redis_client.addStringToReadCallback(read_id, DYN_DEC_POSORI_KEYS[index], posori_dynamic_decoupling_mode[index]);
-    redis_client.addEigenToReadCallback(read_id, DESIRED_POS_KEYS[index], posori_task->_desired_position); 
-    redis_client.addEigenToReadCallback(read_id, DESIRED_ORI_KEYS[index], posori_task->_desired_orientation);
+    redis_client.addEigenToReadCallback(read_id, DESIRED_POS_KEYS[index], posori_desired_position_world[index]); 
+    redis_client.addEigenToReadCallback(read_id, DESIRED_ORI_KEYS[index], posori_desired_orientation_world[index]);
     redis_client.addEigenToReadCallback(read_id, DESIRED_VEL_KEYS[index], posori_task->_desired_velocity);
 
     // update redis for initial conditions and any controller-induced changes
@@ -134,8 +138,8 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task,
     redis_client.addDoubleToWriteCallback(write_id, KV_ORI_KEYS[index], posori_task->_kv_ori);
     redis_client.addDoubleToWriteCallback(write_id, KI_ORI_KEYS[index], posori_task->_ki_ori);
     redis_client.addStringToWriteCallback(write_id, DYN_DEC_POSORI_KEYS[index], posori_dynamic_decoupling_mode[index]);
-    redis_client.addEigenToWriteCallback(write_id, DESIRED_POS_KEYS[index], posori_task->_desired_position); 
-    redis_client.addEigenToWriteCallback(write_id, DESIRED_ORI_KEYS[index], posori_task->_desired_orientation);
+    redis_client.addEigenToWriteCallback(write_id, DESIRED_POS_KEYS[index], posori_desired_position_world[index]); 
+    redis_client.addEigenToWriteCallback(write_id, DESIRED_ORI_KEYS[index], posori_desired_orientation_world[index]);
     redis_client.addEigenToWriteCallback(write_id, DESIRED_VEL_KEYS[index], posori_task->_desired_velocity);
 }
 
@@ -145,6 +149,11 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task, int index)
 
     if (posori_use_interpolation[index] && !posori_task->_use_interpolation_flag)
         posori_task->reInitializeTask();
+
+    const Affine3d& T_world_robot = posori_task->_robot->_T_world_robot;
+
+    posori_task->_desired_position = T_world_robot.linear().transpose() * (posori_desired_position_world[index] - T_world_robot.translation());
+    posori_task->_desired_orientation = T_world_robot.linear().transpose() * posori_desired_orientation_world[index];
 
     posori_task->_use_interpolation_flag = bool(posori_use_interpolation[index]);
     posori_task->_otg->setMaxLinearVelocity(posori_interpolation_max_linear_velocity[index]);

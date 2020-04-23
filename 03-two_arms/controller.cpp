@@ -336,19 +336,15 @@ int main()
     two_hand_task->setForceSensorFrames(sensor_link_name, T_link_sensor, sensor_link_name, T_link_sensor);
 
     // set goal positions for the first state in world frame
-    Vector3d robot1_desired_position_in_world = Vector3d(0.2, -0.2, 0.15);
-    Vector3d robot2_desired_position_in_world = Vector3d(0.2,  0.2, 0.15);
-
     Matrix3d robot1_desired_orientation_in_world;
     Matrix3d robot2_desired_orientation_in_world;
     robot1_desired_orientation_in_world << 1, 0, 0, 0, 0, 1, 0, -1, 0;
     robot2_desired_orientation_in_world << 1, 0, 0, 0, 0, -1, 0, 1, 0;
 
-    // set desired position and orientation for posori tasks : needs to be in world frame
-    posori_tasks[0]->_desired_position = robot_pose_in_world[0].linear().transpose()*(robot1_desired_position_in_world - robot_pose_in_world[0].translation());
-    posori_tasks[0]->_desired_orientation = robot_pose_in_world[0].linear().transpose()*robot1_desired_orientation_in_world;
-    posori_tasks[1]->_desired_position = robot_pose_in_world[1].linear().transpose()*(robot2_desired_position_in_world - robot_pose_in_world[1].translation());
-    posori_tasks[1]->_desired_orientation = robot_pose_in_world[1].linear().transpose()*robot2_desired_orientation_in_world;
+    posori_desired_position_world[0] = Vector3d(0.2, -0.2, 0.15);
+    posori_desired_orientation_world[0] = robot1_desired_orientation_in_world;
+    posori_desired_position_world[1] = Vector3d(0.2,  0.2, 0.15);
+    posori_desired_orientation_world[1] = robot2_desired_orientation_in_world;
 
     // initialization complete
     redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);

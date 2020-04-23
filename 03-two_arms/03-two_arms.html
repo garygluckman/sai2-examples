@@ -82,7 +82,7 @@
     }
 
     .grid-half .col {
-      width: 48%;
+      flex: 1;
     }
 
     .posori-grid {
@@ -277,7 +277,7 @@
             <div class="col">
               <h2>Object Position</h2>
               <sai2-interfaces-slider key="sai2::examples::two_hand_desired_object_position"
-                display="Object Position" min="0" max="1" step="0.01">
+                display="Object Position" min='["-0.6","-0.5","0"]' max='["0.6","0.6","1"]' step="0.01">
               </sai2-interfaces-slider>
               <h2>Relative Object Orientation</h2>
               <sai2-interfaces-orientation key="sai2::examples::two_hand_desired_object_orientation"
