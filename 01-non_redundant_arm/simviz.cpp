@@ -28,6 +28,11 @@ constexpr const char *sim_title = "SAI2.0 - Puma Example";
 RedisClient redis_client;
 
 bool fSimulationRunning = false;
+
+/** 
+ * Custom signal handler: used here to terminate the simulation.
+ * @param signal The signal (e.g. SIGINT) that was raised.
+ */
 void sighandler(int) 
 { 
 	fSimulationRunning = false; 
@@ -106,7 +111,7 @@ int main(int argc, char **argv)
 	fSimulationRunning = true;
 	std::thread sim_thread(simulation, robot, sim, ui_force_widget);
 
-	// while window is open:
+	// while window is open - GLFW (OpenGL framework) main loop
 	while (!glfwWindowShouldClose(window) && fSimulationRunning)
 	{
 		// update graphics. this automatically waits for the correct amount of time
@@ -184,6 +189,7 @@ int main(int argc, char **argv)
 		graphics->setCameraPose(camera_name, camera_pos, cam_up_axis, camera_lookat);
 		glfwGetCursorPos(window, &last_cursorx, &last_cursory);
 
+		// allows the user to drag on a link and apply a force
 		ui_force_widget->setEnable(fRobotLinkSelect);
 		if (fRobotLinkSelect)
 		{
@@ -205,8 +211,6 @@ int main(int argc, char **argv)
 			if (cursorx > 0 && cursory > 0)
 			{
 				ui_force_widget->setInteractionParams(camera_name, viewx, wheight_pix - viewy, wwidth_pix, wheight_pix);
-				//TODO: this behavior might be wrong. this will allow the user to click elsewhere in the screen
-				// then drag the mouse over a link to start applying a force to it.
 			}
 		}
 	}

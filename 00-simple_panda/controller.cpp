@@ -16,12 +16,21 @@
 using namespace Eigen;
 
 ////////////////////// CONSTANTS //////////////////////
+
+/** Redis write callback ID: used for setting keys for the first time  */
 constexpr int INIT_WRITE_CALLBACK_ID = 0;
+
+/** Redis read callback ID: used to grab updated values on each controller cycle */
 constexpr int READ_CALLBACK_ID = 0;
+
+/** Flag to determine if we are in simulation or grabbing values from the real robot */
 constexpr bool flag_simulation = true;
 // constexpr const bool flag_simulation = false;
 
-// redis keys
+/** Damping when dragging the robot in the floating task */
+constexpr double FLOATING_TASK_KV = 2.5;
+
+// Joint redis keys: select the correct key if we are in simulation or not
 constexpr const char *JOINT_ANGLES_KEY = (flag_simulation) ? SIM_JOINT_ANGLES_KEY : HW_JOINT_ANGLES_KEY;
 constexpr const char *JOINT_VELOCITIES_KEY = (flag_simulation) ? SIM_JOINT_VELOCITIES_KEY : HW_JOINT_VELOCITIES_KEY;
 constexpr const char *JOINT_TORQUES_COMMANDED_KEY = (flag_simulation) ? SIM_JOINT_TORQUES_COMMANDED_KEY : HW_JOINT_TORQUES_COMMANDED_KEY;
@@ -32,6 +41,11 @@ std::string currentPrimitive = PRIMITIVE_JOINT_TASK;
 RedisClient redis_client;
 
 ////////////////////// FUNCTIONS //////////////////////
+
+/** 
+ * Custom signal handler: used here to terminate the controller.
+ * @param signal The signal (e.g. SIGINT) that was raised.
+ */
 void sighandler(int)
 {
     runloop = false;
@@ -39,6 +53,11 @@ void sighandler(int)
 
 
 ////////////////// JOINT TASK VARIABLES //////////////////
+/**
+ * Initializes the JointTask with default gains and settings and sets up the Redis callbacks.
+ * @param joint_task    An uninitialized JointTask instance
+ * @param redis_client  A RedisClient instance to set up callbacks
+ */
 void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_client)
 {
     int dof = joint_task->_robot->dof();
@@ -61,15 +80,28 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_JOINT_POS_KEY, joint_task->_desired_position);
 }
 
+/**
+ * Updates the JointTask after a controller cycle.
+ * @param joint_task    The JointTask instance to update after a controller cycle
+ */
 void update_joint_task(Sai2Primitives::JointTask *joint_task)
 {
     // no-op: RedisClient::executeReadCallback updates all necessary variables
 }
 
+
 ////////////////// POSORI TASK VARIABLES //////////////////
+/** Boolean flag to determine if PosOri task uses velocity saturation */
 int posori_use_velocity_saturation;
+
+/** Tuple of (linear velocity, angular velocity) limits for velocity saturation*/
 Eigen::Vector2d posori_velocity_saturation;
 
+/** 
+ * Initializes the PosOriTask with default gains and settings as well as sets up Redis callbacks.
+ * @param posori_task   The PosOriTask object to initialize with default values
+ * @param redis_client  The RedisClient object to set up callbacks
+ */
 void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redis_client)
 {
     Vector3d initial_position;
@@ -95,7 +127,7 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_velocity_saturation(0) = posori_task->_linear_saturation_velocity;
     posori_velocity_saturation(1) = posori_task->_angular_saturation_velocity;
 
-    // prepare redis callback
+    // prepare redis read callback
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_VEL_SAT_POSORI_KEY, posori_use_velocity_saturation);
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, VEL_SAT_POSORI_KEY, posori_velocity_saturation);
     redis_client.addDoubleToReadCallback(READ_CALLBACK_ID, KP_POS_KEY, posori_task->_kp_pos);
@@ -112,6 +144,10 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 }
 
+/**
+ * Updates a PosOriTask instance after a controller cycle.
+ * @param posori_task   The PosOriTask instance to update after a controller cycle
+ */
 void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
 {
     auto dof = posori_task->_robot->dof();
@@ -166,6 +202,11 @@ int main(int argc, char **argv)
 
     Sai2Primitives::JointTask *joint_task = new Sai2Primitives::JointTask(robot);
     init_joint_task(joint_task, redis_client);
+
+    Sai2Primitives::JointTask *floating_task = new Sai2Primitives::JointTask(robot);
+    floating_task->_use_interpolation_flag = false;
+    floating_task->_kp = 0;
+    floating_task->_kv = FLOATING_TASK_KV;
 
     // initialization complete
     redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
@@ -228,6 +269,11 @@ int main(int argc, char **argv)
                 posori_task->reInitializeTask();
                 redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, posori_task->_current_position);
             }
+            else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+            {
+                floating_task->_current_position = robot->_q;
+                floating_task->reInitializeTask();
+            }
         }
 
         // steady-state operations for each task
@@ -254,7 +300,10 @@ int main(int argc, char **argv)
         }
         else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
         {
-            command_torques.setZero(dof);
+            floating_task->updateTaskModel(MatrixXd::Identity(dof, dof));
+            Eigen::VectorXd floating_task_torques;
+            floating_task->computeTorques(floating_task_torques);
+            command_torques = floating_task_torques + coriolis;
         }
     
         // -------------------------------------------
@@ -276,7 +325,7 @@ int main(int argc, char **argv)
             std::cout << "current primitive: " << currentPrimitive << std::endl;
             if (currentPrimitive == PRIMITIVE_JOINT_TASK)
             {
-                std::cout << time << std::endl;
+                std::cout << curr_time << std::endl;
                 std::cout << "desired position : " << joint_task->_desired_position.transpose() << std::endl;
                 std::cout << "current position : " << joint_task->_current_position.transpose() << std::endl;
                 std::cout << "position error : " << (joint_task->_desired_position - joint_task->_current_position).norm() << std::endl;
@@ -284,7 +333,7 @@ int main(int argc, char **argv)
             }
             else if (currentPrimitive == PRIMITIVE_POSORI_TASK || currentPrimitive == PRIMITIVE_TRAJECTORY_TASK)
             {
-                std::cout << time << std::endl;
+                std::cout << curr_time << std::endl;
                 std::cout << "desired position : " << posori_task->_desired_position.transpose() << std::endl;
                 std::cout << "current position : " << posori_task->_current_position.transpose() << std::endl;
                 std::cout << "position error : " << (posori_task->_desired_position - posori_task->_current_position).norm() << std::endl;
@@ -311,5 +360,6 @@ int main(int argc, char **argv)
     delete robot;
     delete joint_task;
     delete posori_task;
+    delete floating_task;
     return 0;
 }
