@@ -71,6 +71,7 @@ constexpr const char *ROBOT_FILE = "resources/mmp_panda.urdf";
 constexpr const char *PRIMITIVE_KEY = "sai2::examples::primitive";
 constexpr const char *PRIMITIVE_JOINT_TASK = "primitive_joint_task";
 constexpr const char *PRIMITIVE_POSORI_TASK = "primitive_posori_task";
+constexpr const char *PRIMITIVE_NAV_TASK = "primitive_nav_task";
 constexpr const char *PRIMITIVE_TRAJECTORY_TASK = "primitive_trajectory_task";
 constexpr const char *PRIMITIVE_FLOATING_TASK = "primitive_floating_task";
 

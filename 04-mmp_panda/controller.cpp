@@ -383,14 +383,21 @@ int main(int argc, char **argv)
     VectorXd command_torques = VectorXd::Zero(dof);
     VectorXd joint_task_torques = VectorXd::Zero(dof);
     VectorXd posori_task_torques = VectorXd::Zero(dof);
+    VectorXd nav_task_torques = VectorXd::Zero(dof);
     VectorXd coriolis = VectorXd::Zero(dof);
 
-    const std::string link_name = "link7";
-    const Vector3d pos_in_link = Vector3d(0.0, 0.0, 0.12);
+    const std::string ee_link_name = "link7";
+    const Vector3d ee_pos_in_link = Vector3d(0.0, 0.0, 0.12);
+
+    const std::string body_link_name = "base_link";
+    const Vector3d body_pos_in_link = Vector3d(0.0, 0.0, 0.0);
 
     // initialize tasks
-    Sai2Primitives::PosOriTask *posori_task = new Sai2Primitives::PosOriTask(robot, link_name, pos_in_link);
+    Sai2Primitives::PosOriTask *posori_task = new Sai2Primitives::PosOriTask(robot, ee_link_name, ee_pos_in_link);
     init_posori_task(posori_task, redis_client);
+
+    Sai2Primitives::PosOriTask *nav_task = new Sai2Primitives::PosOriTask(robot, body_link_name, body_pos_in_link);
+    init_posori_task(nav_task, redis_client);
 
     Sai2Primitives::JointTask *joint_task = new Sai2Primitives::JointTask(robot);
     init_joint_task(joint_task, redis_client);
@@ -426,6 +433,7 @@ int main(int argc, char **argv)
         redis_client.executeReadCallback(READ_CALLBACK_ID);
         update_joint_task(joint_task);
         update_posori_task(posori_task);
+        update_posori_task(nav_task);
 
         if (flag_simulation)
         {
@@ -460,6 +468,15 @@ int main(int argc, char **argv)
                 Vector3d angles = posori_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
                 redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, angles);
             }
+            else if (currentPrimitive == PRIMITIVE_NAV_TASK)
+            {
+                nav_task->reInitializeTask();
+                redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, nav_task->_current_position);
+
+                // ZYX euler angles, but stored as XYZ
+                Vector3d angles = nav_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
+                redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, angles);
+            }
         }
 
         // steady-state operations for each task
@@ -489,6 +506,26 @@ int main(int argc, char **argv)
             joint_task->computeTorques(joint_task_torques);
             command_torques = posori_task_torques + joint_task_torques + coriolis;
         }
+        else if (currentPrimitive == PRIMITIVE_NAV_TASK)
+        {
+            joint_task->_use_isotropic_gains = true;
+            nav_task->updateTaskModel(N_prec);
+            N_prec = nav_task->_N;
+            joint_task->updateTaskModel(N_prec);
+
+#ifdef USING_OTG
+            // disable OTG for trajectory task 
+            if (currentPrimitive == PRIMITIVE_TRAJECTORY_TASK)
+                redis_client.set(POSORI_USE_INTERPOLATION, "0");
+#endif
+            // we also need to read linear & angular velocity
+            nav_task->_desired_angular_velocity.setZero();
+
+            // compute torques
+            nav_task->computeTorques(nav_task_torques);
+            joint_task->computeTorques(joint_task_torques);
+            command_torques = nav_task_torques + joint_task_torques + coriolis;
+        }
         else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
         {
             command_torques.setZero(dof);
@@ -499,13 +536,15 @@ int main(int argc, char **argv)
 
         // log current EE position and velocity to redis
         Vector3d current_pos;
-        robot->position(current_pos, link_name, pos_in_link);
+        robot->position(current_pos, ee_link_name, ee_pos_in_link);
 
         Vector3d current_vel;
-        robot->linearVelocity(current_vel, link_name, pos_in_link);
+        robot->linearVelocity(current_vel, ee_link_name, ee_pos_in_link);
 
         redis_client.setEigenMatrixJSON(CURRENT_EE_POS_KEY, current_pos);
         redis_client.setEigenMatrixJSON(CURRENT_EE_VEL_KEY, current_vel);
+
+        // TODO: log body position and velocity to redis
         
         // -------------------------------------------
         if (controller_counter % 500 == 0)
@@ -525,6 +564,14 @@ int main(int argc, char **argv)
                 std::cout << "desired position : " << posori_task->_desired_position.transpose() << std::endl;
                 std::cout << "current position : " << posori_task->_current_position.transpose() << std::endl;
                 std::cout << "position error : " << (posori_task->_desired_position - posori_task->_current_position).norm() << std::endl;
+                std::cout << std::endl;
+            }
+            else if (currentPrimitive == PRIMITIVE_NAV_TASK)
+            {
+                std::cout << time << std::endl;
+                std::cout << "desired position : " << nav_task->_desired_position.transpose() << std::endl;
+                std::cout << "current position : " << nav_task->_current_position.transpose() << std::endl;
+                std::cout << "position error : " << (nav_task->_desired_position - nav_task->_current_position).norm() << std::endl;
                 std::cout << std::endl;
             }
         }
@@ -551,5 +598,7 @@ int main(int argc, char **argv)
         delete joint_task;
     if (posori_task)
         delete posori_task;
+    if (nav_task)
+        delete nav_task;
     return 0;
 }

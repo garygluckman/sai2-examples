@@ -189,7 +189,109 @@
           <div class="posori center">
             <h2>Desired Position</h2>
             <sai2-interfaces-slider key="sai2::examples::desired_position" display='["X", "Y", "Z"]'
-              min="[-0.5,-0.5,0.3]" max="[0.5,0.5,0.8]" step="0.01">
+              min="[-3.0,-3.0,0.5]" max="[3.0,3.0,1.0]" step="0.01">
+            </sai2-interfaces-slider>
+            <h2>Desired Orientation <br>(XYZ Fixed Angles)</h2>
+            <sai2-interfaces-slider key="sai2::examples::desired_orientation" display='["X (γ)", "Y (β)", "Z (α)"]'
+              min="[-3.14,-3.14,0]" max="[3.14,3.14,3.14]" step="0.01">
+            </sai2-interfaces-slider>
+          </div>
+
+          <div class="gains center">
+            <h2>Gains</h2>
+
+            <sai2-interfaces-toggle-group key="sai2::examples::use_isotropic_pos_gains" name="Use Isotropic Gains">
+              <sai2-interfaces-toggle-group-enabled>
+                <sai2-interfaces-slider key="sai2::examples::kp_pos" display="Kp Pos" min="0" max="400" step="0.01">
+                </sai2-interfaces-slider>
+                <sai2-interfaces-slider key="sai2::examples::kv_pos" display="Kv Pos" min="0" max="100" step="0.01">
+                </sai2-interfaces-slider>
+                <!--<sai2-interfaces-slider key="sai2::examples::ki_pos" display="Ki Pos" min="0" max="100" step="0.01">
+                </sai2-interfaces-slider>-->
+              </sai2-interfaces-toggle-group-enabled>
+              <sai2-interfaces-toggle-group-disabled>
+                <sai2-interfaces-slider key="sai2::examples::kp_nonisotropic_pos" display="Kp Pos" min="0" max="400"
+                  step="0.01">
+                </sai2-interfaces-slider>
+                <sai2-interfaces-toggle-group name="Use Unsafe Gains">
+                  <sai2-interfaces-toggle-group-enabled>
+                    <sai2-interfaces-slider key="sai2::examples::kv_nonisotropic_pos" display="Kv Pos" min="-20"
+                      max="100" step="0.01">
+                    </sai2-interfaces-slider>
+                  </sai2-interfaces-toggle-group-enabled>
+                  <sai2-interfaces-toggle-group-disabled>
+                    <sai2-interfaces-slider key="sai2::examples::kv_nonisotropic_pos" display="Kv Pos" min="0" max="100"
+                      step="0.01">
+                    </sai2-interfaces-slider>
+                  </sai2-interfaces-toggle-group-disabled>
+                </sai2-interfaces-toggle-group>
+                <!--<sai2-interfaces-slider key="sai2::examples::ki_pos" display="Ki Pos" min="0" max="100" step="0.01">
+                </sai2-interfaces-slider>-->
+              </sai2-interfaces-toggle-group-disabled>
+            </sai2-interfaces-toggle-group>
+
+            <sai2-interfaces-slider key="sai2::examples::kp_ori" display="Kp Ori" min="0" max="100" step="0.01">
+            </sai2-interfaces-slider>
+            <sai2-interfaces-slider key="sai2::examples::kv_ori" display="Kv Ori" min="0" max="100" step="0.01">
+            </sai2-interfaces-slider>
+            <!--<sai2-interfaces-slider key="sai2::examples::ki_ori" display="Ki Ori" min="0" max="100" step="0.01">
+            </sai2-interfaces-slider>-->
+            <sai2-interfaces-accordion displayName="Use Interpolation" key="sai2::examples::posori_use_interpolation">
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_linear_vel" display="OTG Max Linear Vel" min="0" max="1" step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_linear_accel" display="OTG Max Linear Accel" min="0" max="2" step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_linear_jerk" display="OTG Max Linear Jerk" min="0" max="9" step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_angular_vel" display="OTG Max Angular Vel" min="0" max="3.14" step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_angular_accel" display="OTG Max Angular Accel" min="0" max="6.28" step="0.01">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::posori_interpolation_max_angular_jerk" display="OTG Max Angular Jerk" min="0" max="15" step="0.01">
+              </sai2-interfaces-slider>
+            </sai2-interfaces-accordion><br>
+            <sai2-interfaces-accordion displayName="Velocity Saturation"
+              key="sai2::examples::use_posori_velocity_saturation">
+              <sai2-interfaces-slider key="sai2::examples::posori_velocity_saturation"
+                display='["Linear Velocity", "Angular Velocity"]' min="[0,0]" max="[0.5,1.57]" step="0.01">
+              </sai2-interfaces-slider>
+            </sai2-interfaces-accordion>
+            <sai2-interfaces-enum key="sai2::examples::posori_dynamic_decoupling" display="Dynamic Decoupling">
+              <option value="full">Full</option>
+              <option value="partial">Partial</option>
+              <option value="inertia_saturation">Inertia Saturation</option>
+              <option value="none">None</option>
+            </sai2-interfaces-enum>
+          </div>
+
+          <div class="nullspace">
+            <sai2-interfaces-toggle-group name="Show Nullspace">
+              <sai2-interfaces-toggle-group-enabled class="grid-half">
+                <div class="col center">
+                  <h2>Nullspace Joint Control</h2>
+                  <sai2-interfaces-slider key="sai2::examples::desired_joint_position"
+                    display='["Joint 1", "Joint 2", "Joint 3", "Joint 4", "Joint 5", "Joint 6", "Joint 7"]'
+                    min="[-2.89, -1.76, -2.89, -3.07, -2.89, -0.01, -2.89]" max="[2.89, 1.76, 2.89, -0.07, 2.89, 3.75, 2.89]"
+                    step="0.01">
+                  </sai2-interfaces-slider>
+                </div>
+                <div class="col center">
+                  <h2>Nullspace Gains</h2>
+                  <sai2-interfaces-slider key="sai2::examples::kp_joint" display="Kp Joint" min="0" max="200" step="0.01">
+                  </sai2-interfaces-slider>
+                  <sai2-interfaces-slider key="sai2::examples::kv_joint" display="Kv Joint" min="0" max="35" step="0.01">
+                  </sai2-interfaces-slider>
+                </div>
+              </sai2-interfaces-toggle-group-enabled>
+            </sai2-interfaces-toggle-group>
+          </div>
+        </sai2-interfaces-select-option>
+
+        <sai2-interfaces-select-option name="Nav Task" key="primitive_nav_task" class="posori-grid module">
+          <div class="posori center">
+            <h2>Desired Position</h2>
+            <sai2-interfaces-slider key="sai2::examples::desired_position" display='["X", "Y", "Z"]'
+              min="[-3.0,-3.0,0.5]" max="[3.0,3.0,1.0]" step="0.01">
             </sai2-interfaces-slider>
             <h2>Desired Orientation <br>(XYZ Fixed Angles)</h2>
             <sai2-interfaces-slider key="sai2::examples::desired_orientation" display='["X (γ)", "Y (β)", "Z (α)"]'
