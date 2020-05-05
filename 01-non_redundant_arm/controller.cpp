@@ -53,7 +53,7 @@ Eigen::VectorXd joint_kp_nonisotropic;
 /** Kv values for each joint in nonisotropic mode */
 Eigen::VectorXd joint_kv_nonisotropic;
 
-/** Flag to use OTG interpolation or not*/
+/** Flag to use OTG interpolation or not */
 int joint_use_interpolation;
 
 /** JointTask OTG max velocity */
@@ -71,7 +71,7 @@ int joint_use_velocity_saturation;
 /** Flag to use isotropic gains or not */
 int joint_use_isotropic_gains;
 
-/** Current dynamic decoupling mode (full, inertia_saturation, or none)*/
+/** Current dynamic decoupling mode (full, inertia_saturation, or none) */
 std::string joint_dynamic_decoupling_mode;
 
 /**

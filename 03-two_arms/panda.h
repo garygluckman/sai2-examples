@@ -10,7 +10,19 @@
 #include <vector>
 #include "keys.h"
 
-
+/**
+ * Initializes a JointTask instance for a robot based on its index and sets
+ * up Redis read callbacks per controller cycle via @a read_id as well as the 
+ * initial Redis key-value initialization via @a write_id.
+ * 
+ * @param joint_task     The JointTask object to initialize with default values
+ * @param redis_client   The RedisClient instance to use when communicating with Redis
+ * @param index          The robot's index for each key. For example, if the
+ *                       available robots were [panda1, panda2], my index would
+ *                       be 0 if I were initializing panda1.
+ * @param read_id        The Redis read callback ID to use when reading keys per controller cycle
+ * @param write_id        The Redis write callback ID to use when setting keys to their initial values
+ */
 void init_joint_task(Sai2Primitives::JointTask *joint_task, 
                      RedisClient& redis_client, int index, int read_id, 
                      int write_id)
@@ -38,19 +50,58 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task,
 }
 
 ////////////////// POSORI TASK VARIABLES //////////////////
+/** Each robot EE's desired position wrt world frame */
 std::array<Eigen::Vector3d, N_ROBOTS> posori_desired_position_world;
+
+/** Each robot EE's desired orientation wrt world frame */
 std::array<Eigen::Matrix3d, N_ROBOTS> posori_desired_orientation_world;
+
+/** Whether or not each robot is using OTG interpolation */
 std::array<int, N_ROBOTS> posori_use_interpolation;
+
+/** Each robot's maximum OTG linear velocity */
 std::array<double, N_ROBOTS> posori_interpolation_max_linear_velocity;
+
+/** Each robot's maximum OTG linear acceleration */
 std::array<double, N_ROBOTS> posori_interpolation_max_linear_acceleration;
+
+/** Each robot's maximum OTG linear jerk */
 std::array<double, N_ROBOTS> posori_interpolation_max_linear_jerk;
+
+/** Each robot's maximum OTG angular velocity */
 std::array<double, N_ROBOTS> posori_interpolation_max_angular_velocity;
+
+/** Each robot's maximum OTG angular acceleration */
 std::array<double, N_ROBOTS> posori_interpolation_max_angular_acceleration;
+
+/** Each robot's maximum OTG angular jerk */
 std::array<double, N_ROBOTS> posori_interpolation_max_angular_jerk;
+
+/** Whether or not each robot will use velocity saturation */
 std::array<int, N_ROBOTS> posori_use_velocity_saturation;
+
+/** 
+ * Each robot stores a tuple of (max linear velocity, max angular velocity) 
+ * for the velocity saturation setting. 
+ */
 std::array<Eigen::Vector2d, N_ROBOTS> posori_velocity_saturation;
+
+/** Each robot's dynamic decoupling mode */
 std::array<std::string, N_ROBOTS> posori_dynamic_decoupling_mode;
 
+/**
+ * Initializes a PosOri instance for a robot based on its index and sets
+ * up Redis read callbacks per controller cycle via @a read_id as well as the 
+ * initial Redis key-value initialization via @a write_id.
+ * 
+ * @param posori_task    The PosOriTask object to initialize with default values
+ * @param redis_client   The RedisClient instance to use when communicating with Redis
+ * @param index          The robot's index for each key. For example, if the
+ *                       available robots were [panda1, panda2], my index would
+ *                       be 0 if I were initializing panda1.
+ * @param read_id        The Redis read callback ID to use when reading keys per controller cycle
+ * @param write_id       The Redis write callback ID to use when setting keys to their initial values
+ */
 void init_posori_task(Sai2Primitives::PosOriTask *posori_task, 
                       RedisClient& redis_client, int index, int read_id, 
                       int write_id)
@@ -143,13 +194,23 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task,
     redis_client.addEigenToWriteCallback(write_id, DESIRED_VEL_KEYS[index], posori_task->_desired_velocity);
 }
 
+/**
+ * Updates the given PosOriTask and the robot's index after a controller cycle
+ * 
+ * @param posori_task    The PosOri object to update after a controller cycle
+ * @param index          The robot's index for each key. For example, if the
+ *                       available robots were [panda1, panda2], my index would
+ *                       be 0 if I were initializing panda1.
+ */
 void update_posori_task(Sai2Primitives::PosOriTask *posori_task, int index)
 {
     auto dof = posori_task->_robot->dof();
 
+    // reinitialize task if interpolation is enabled
     if (posori_use_interpolation[index] && !posori_task->_use_interpolation_flag)
         posori_task->reInitializeTask();
 
+    // convert desired pos/ori from world frame to robot frame
     const Affine3d& T_world_robot = posori_task->_robot->_T_world_robot;
 
     posori_task->_desired_position = T_world_robot.linear().transpose() * (posori_desired_position_world[index] - T_world_robot.translation());

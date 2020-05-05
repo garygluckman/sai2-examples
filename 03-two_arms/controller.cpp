@@ -18,11 +18,20 @@
 using namespace Eigen;
 
 ////////////////////// CONSTANTS //////////////////////
+/** Redis write callback ID used when setting all Redis keys to their initial values */
 constexpr int INIT_WRITE_CALLBACK_ID = 0;
+
+/** Redis read callback ID used when reading Redis keys each controller cycle */
 constexpr int READ_CALLBACK_ID = 0;
+
+/** Redis write callback ID used when writing some Redis keys each controller cycle */
 constexpr int CYCLE_WRITE_CALLBACK_ID = 1;
+
+/** Flag to determine if we are in simulation or grabbing values from the real robot */
 constexpr bool flag_simulation = true;
 // constexpr const bool flag_simulation = false;
+
+/** Damping when dragging the robot in the floating task */
 constexpr double FLOATING_TASK_KV = 2.5;
 
 ////////////////// ACTUAL REDIS KEYS //////////////////
@@ -30,7 +39,6 @@ constexpr std::array<const char *, N_ROBOTS> JOINT_ANGLES_KEYS = (flag_simulatio
 constexpr std::array<const char *, N_ROBOTS> JOINT_VELOCITIES_KEYS = (flag_simulation) ? SIM_JOINT_VELOCITIES_KEYS : HW_JOINT_VELOCITIES_KEYS;
 constexpr std::array<const char *, N_ROBOTS> JOINT_TORQUES_COMMANDED_KEYS = (flag_simulation) ? SIM_JOINT_TORQUES_COMMANDED_KEYS : HW_JOINT_TORQUES_COMMANDED_KEYS;
 constexpr std::array<const char *, N_ROBOTS> SENSED_FORCES_KEYS = SIM_SENSED_FORCES_KEYS;
-//constexpr char *OBJECT_POSITION_KEY = "sai2::WarehouseApplications::object_position";
 
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
@@ -47,24 +55,55 @@ std::vector<VectorXd> coriolis;
 std::mutex model_mutex; 
 
 ////////////////////// FUNCTIONS //////////////////////
+/** 
+ * Custom signal handler: used here to terminate the controller.
+ * @param signal The signal (e.g. SIGINT) that was raised.
+ */
 void sighandler(int)
 {
     runloop = false;
 }
 
 ////////////////////// TWO HAND TASK //////////////////////
+/** Flag to use internal force control or not */
 int two_hand_use_internal_force_flag;
+
+/** Flag to use interpolation on object position */
 int two_hand_use_interpolation_pos_flag;
+
+/** Flag to use interpolation on object orientation */
 int two_hand_use_interpolation_ori_flag;
+
+/** Flag to use velocity saturation on object pos & ori */
 int two_hand_use_velocity_saturation_flag;
+
+/** Max OTG linear velocity of object position */
 double two_hand_interpolation_pos_max_vel;
+
+/** Max OTG linear acceleration of object position */
 double two_hand_interpolation_pos_max_accel;
+
+/** Max OTG linear jerk of object position */
 double two_hand_interpolation_pos_max_jerk;
+
+/** Max OTG angular velocity of object orientation */
 double two_hand_interpolation_ori_max_vel;
+
+/** Max OTG angular acceleration of object orientation */
 double two_hand_interpolation_ori_max_accel;
+
+/** Max OTG angular jerk of object orientation */
 double two_hand_interpolation_ori_max_jerk;
+
+/** Each robot's sensed force/moments at the end effectors */
 std::vector<VectorXd> sensed_force_moments;
 
+/**
+ * Initializes the TwoHandTwoRobotsTask object with default values
+ * 
+ * @param two_hand_task     The TwoHandTwoRobotsTask object to initialize with default values
+ * @param redis             The RedisClient instance to use when setting callbacks
+ */
 void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, RedisClient& redis)
 {
     // initialize global variables
@@ -186,6 +225,10 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
     redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, two_hand_task->_desired_object_orientation);
 }
 
+/**
+ * Updates the given TwoHandTwoRobotsTask after a controller cycle.
+ * @param two_hand_task     The TwoHandTwoRobotsTask to update after a controller cycle
+ */
 void update_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task)
 {
     two_hand_task->_internal_force_control_flag = bool(two_hand_use_internal_force_flag);
@@ -216,7 +259,10 @@ void update_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task)
     }
 }
 
-// function to update model at a slower rate
+/**
+ * Updates each task's (joint, posori, two hand) task model at a slower 200 Hz
+ * in a separate thread.
+ */
 void updateModelThread();
 
 int main()
@@ -376,6 +422,8 @@ int main()
         std::string oldPrimitive = currentPrimitive;
         redis_client.executeReadCallback(READ_CALLBACK_ID);
 
+        // we lock in main controller loop as the slower task model update 
+        // is not thread-safe
         std::lock_guard<std::mutex> lock(model_mutex);
 
         for (int i = 0; i < N_ROBOTS; i++)
@@ -385,6 +433,7 @@ int main()
 
         update_two_handed_task(two_hand_task.get());
 
+        // if primitive changes, reset & reinit
         if (currentPrimitive != oldPrimitive)
         {
             if (currentPrimitive == PRIMITIVE_INDEPENDENT_TASK)
@@ -531,6 +580,9 @@ void updateModelThread()
     {
         timer.waitForNextLoop();
 
+        // updating task model is not thread-safe: we must lock so that the
+        // main controller thread does not compute torques while we update
+        // internal the task models
         std::lock_guard<std::mutex> lock(model_mutex);
 
         // read robot state from redis and update robot model

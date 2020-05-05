@@ -16,13 +16,21 @@
 using namespace Eigen;
 
 ////////////////////// CONSTANTS //////////////////////
+
+/** Redis write callback ID: used for setting keys for the first time  */
 constexpr int INIT_WRITE_CALLBACK_ID = 0;
+
+/** Redis read callback ID: used to grab updated values on each controller cycle */
 constexpr int READ_CALLBACK_ID = 0;
+
+/** Flag to determine if we are in simulation or grabbing values from the real robot */
 constexpr bool flag_simulation = true;
 // constexpr const bool flag_simulation = false;
+
+/** Damping when dragging the robot in the floating task */
 constexpr double FLOATING_TASK_KV = 2.5;
 
-// redis keys
+// Joint redis keys: select the correct key if we are in simulation or not
 constexpr const char *JOINT_ANGLES_KEY = (flag_simulation) ? SIM_JOINT_ANGLES_KEY : HW_JOINT_ANGLES_KEY;
 constexpr const char *JOINT_VELOCITIES_KEY = (flag_simulation) ? SIM_JOINT_VELOCITIES_KEY : HW_JOINT_VELOCITIES_KEY;
 constexpr const char *JOINT_TORQUES_COMMANDED_KEY = (flag_simulation) ? SIM_JOINT_TORQUES_COMMANDED_KEY : HW_JOINT_TORQUES_COMMANDED_KEY;
@@ -33,6 +41,10 @@ std::string currentPrimitive = PRIMITIVE_JOINT_TASK;
 RedisClient redis_client;
 
 ////////////////////// FUNCTIONS //////////////////////
+/** 
+ * Custom signal handler: used here to terminate the controller.
+ * @param signal The signal (e.g. SIGINT) that was raised.
+ */
 void sighandler(int)
 {
     runloop = false;
@@ -40,16 +52,38 @@ void sighandler(int)
 
 
 ////////////////// JOINT TASK VARIABLES //////////////////
+/** Kp values for each joint in nonisotropic mode */
 Eigen::VectorXd joint_kp_nonisotropic;
+
+/** Kv values for each joint in nonisotropic mode */
 Eigen::VectorXd joint_kv_nonisotropic;
+
+/** Flag to use OTG interpolation or not */
 int joint_use_interpolation;
+
+/** JointTask OTG max velocity */
 double joint_interpolation_max_velocity;
+
+/** JointTask OTG max acceleration */
 double joint_interpolation_max_acceleration;
+
+/** JointTask OTG max jerk */
 double joint_interpolation_max_jerk;
+
+/** Flag to use velocity saturation or not */
 int joint_use_velocity_saturation;
+
+/** Flag to use isotropic gains or not */
 int joint_use_isotropic_gains;
+
+/** Current dynamic decoupling mode (full, inertia_saturation, or none) */
 std::string joint_dynamic_decoupling_mode;
 
+/**
+ * Initializes the JointTask with default gains and settings and sets up the Redis callbacks.
+ * @param joint_task    An uninitialized JointTask instance
+ * @param redis_client  A RedisClient instance to set up callbacks
+ */
 void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_client)
 {
     int dof = joint_task->_robot->dof();
@@ -109,16 +143,21 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, JOINT_INTERPOLATION_MAX_JERK, joint_interpolation_max_jerk);
 }
 
+/**
+ * Updates the JointTask after a controller cycle.
+ * @param joint_task    The JointTask instance to update after a controller cycle
+ */
 void update_joint_task(Sai2Primitives::JointTask *joint_task)
 {
     auto dof = joint_task->_robot->dof();
 
+    // re-initialize if new cycle enabled interpolation - otherwise interpolation has stale position internally
     if (joint_use_interpolation && !joint_task->_use_interpolation_flag)
         joint_task->reInitializeTask();
 
     if (!joint_task->_use_isotropic_gains && joint_use_isotropic_gains)
     {
-        // going from nonisotropic to isotropic
+        // going from nonisotropic to isotropic: take the median Kp & Kv
         VectorXd kp_median_temp(joint_kp_nonisotropic);
         VectorXd kv_median_temp(joint_kv_nonisotropic);
 
@@ -132,7 +171,7 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
     }
     else if (joint_task->_use_isotropic_gains && !joint_use_isotropic_gains)
     {
-        // going from isotropic to nonisotropic
+        // going from isotropic to nonisotropic: set each joint to same value
         joint_kp_nonisotropic = joint_task->_kp * VectorXd::Ones(dof);
         joint_kv_nonisotropic = joint_task->_kv * VectorXd::Ones(dof);
         joint_task->setNonIsotropicGains(joint_kp_nonisotropic, joint_kv_nonisotropic, VectorXd::Zero(dof));
@@ -157,21 +196,53 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
 }
 
 ////////////////// POSORI TASK VARIABLES //////////////////
+/** Flag to use PosOriTask with OTG interpolation or not */
 int posori_use_interpolation;
+
+/** PosOriTask OTG interpolation max linear velocity */
 double posori_interpolation_max_linear_velocity;
+
+/** PosOriTask OTG interpolation max linear acceleration */
 double posori_interpolation_max_linear_acceleration;
+
+/** PosOriTask OTG interpolation max linear jerk */
 double posori_interpolation_max_linear_jerk;
+
+/** PosOriTask OTG interpolation max angular velocity */
 double posori_interpolation_max_angular_velocity;
+
+/** PosOriTask OTG interpolation max angular acceleration */
 double posori_interpolation_max_angular_acceleration;
+
+/** PosOriTask OTG interpolation max angular jerk */
 double posori_interpolation_max_angular_jerk;
+
+/** Flag to use PosOri velocity saturation or not */
 int posori_use_velocity_saturation;
+
+/** Flag to use PosOri isotropic gains or not*/
 int posori_use_isotropic_gains;
+
+/** Tuple of (linear velocity, angular velocity) for velocity saturation */
 Eigen::Vector2d posori_velocity_saturation;
+
+/** Kp (x, y, z) when using nonisotropic gains */
 Eigen::Vector3d posori_kp_nonisotropic;
+
+/** Kv (x, y, z) when using nonisotropic gains */
 Eigen::Vector3d posori_kv_nonisotropic;
+
+/** Ki (x, y, z) when using nonisotropic gains */
 Eigen::Vector3d posori_ki_nonisotropic;
+
+/** Current dynamic decoupling mode: (full, partial, inertia_saturation, none)*/
 std::string posori_dynamic_decoupling_mode;
 
+/**
+ * Initializes a PosOriTask object with default gains/settings and sets up Redis callbacks.
+ * @param posori_task   The PosOriTask to initialize
+ * @param redis_client  The RedisClient to use when setting up callbacks
+ */
 void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redis_client)
 {
     Matrix3d initial_orientation;
@@ -278,6 +349,10 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 }
 
+/**
+ * Updates a PosOriTask instance after a controller cycle.
+ * @param posori_task   The PosOriTask instance to update after a controller cycle
+ */
 void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
 {
     auto dof = posori_task->_robot->dof();
@@ -287,7 +362,7 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
 
     if (posori_task->_use_isotropic_gains_position && !posori_use_isotropic_gains)
     {
-        // going from isotropic to nonisotropic
+        // going from isotropic to nonisotropic: set all Kp/Kv/Ki to same value
         posori_kp_nonisotropic = posori_task->_kp_pos * Vector3d::Ones();
         posori_kv_nonisotropic = posori_task->_kv_pos * Vector3d::Ones();
         posori_ki_nonisotropic = posori_task->_ki_pos * Vector3d::Ones();
@@ -304,7 +379,7 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
     }
     else if (!posori_task->_use_isotropic_gains_position && posori_use_isotropic_gains)
     {
-        // going from nonisotropic to isotropic
+        // going from nonisotropic to isotropic: set Kp/Kv to median
         Vector3d kp_median_temp(posori_kp_nonisotropic);
         Vector3d kv_median_temp(posori_kv_nonisotropic);
 

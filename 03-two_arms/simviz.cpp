@@ -17,19 +17,36 @@
 
 #include "keys.h"
 
+/**
+ * @struct Object
+ * Represents an object within the simulation environment.
+ */
 struct Object 
 {
+    /** The object name (e.g. "box") which also defines its shape */
     std::string name;
+
+    /** The object position wrt world frame */
     Vector3d position;
+
+    /** The object orientation wrt world frame */
     Quaterniond orientation;
 
+    /**
+     * Creates an object instance with the specified name, position, and orientation
+     * in the world frame.
+     * 
+     * @param name The object name
+     * @param pos  The object position wrt world
+     * @param ori  The object orientation wrt world
+     */
     Object(const std::string& name, const Vector3d& pos, const Quaterniond& ori) 
         : name(name), position(pos), orientation(ori)
     {
     }
 };
 
-
+// simulation constants
 constexpr const char *world_file = "./resources/world.urdf";
 constexpr const char *camera_name = "camera_fixed";
 constexpr const char *sim_title = "SAI2.0 - Two Arms";
@@ -57,6 +74,10 @@ void sighandler(int)
     fSimulationRunning = false;
 }
 
+/**
+ * Creates all objects that should be placed within the simulation and adds
+ * them to the global vector @a objects.
+ */
 void initialize_objects()
 {
     objects.push_back(Object("box", Vector3d::Zero(), Quaterniond::Identity()));
