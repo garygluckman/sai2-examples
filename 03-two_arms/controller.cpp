@@ -10,6 +10,7 @@
 #include <csignal>
 #include <vector>
 #include <memory>
+#include <mutex>
 
 #include "keys.h"
 #include "panda.h"
@@ -17,18 +18,27 @@
 using namespace Eigen;
 
 ////////////////////// CONSTANTS //////////////////////
+/** Redis write callback ID used when setting all Redis keys to their initial values */
 constexpr int INIT_WRITE_CALLBACK_ID = 0;
+
+/** Redis read callback ID used when reading Redis keys each controller cycle */
 constexpr int READ_CALLBACK_ID = 0;
+
+/** Redis write callback ID used when writing some Redis keys each controller cycle */
 constexpr int CYCLE_WRITE_CALLBACK_ID = 1;
+
+/** Flag to determine if we are in simulation or grabbing values from the real robot */
 constexpr bool flag_simulation = true;
 // constexpr const bool flag_simulation = false;
+
+/** Damping when dragging the robot in the floating task */
+constexpr double FLOATING_TASK_KV = 2.5;
 
 ////////////////// ACTUAL REDIS KEYS //////////////////
 constexpr std::array<const char *, N_ROBOTS> JOINT_ANGLES_KEYS = (flag_simulation) ? SIM_JOINT_ANGLES_KEYS : HW_JOINT_ANGLES_KEYS;
 constexpr std::array<const char *, N_ROBOTS> JOINT_VELOCITIES_KEYS = (flag_simulation) ? SIM_JOINT_VELOCITIES_KEYS : HW_JOINT_VELOCITIES_KEYS;
 constexpr std::array<const char *, N_ROBOTS> JOINT_TORQUES_COMMANDED_KEYS = (flag_simulation) ? SIM_JOINT_TORQUES_COMMANDED_KEYS : HW_JOINT_TORQUES_COMMANDED_KEYS;
 constexpr std::array<const char *, N_ROBOTS> SENSED_FORCES_KEYS = SIM_SENSED_FORCES_KEYS;
-//constexpr char *OBJECT_POSITION_KEY = "sai2::WarehouseApplications::object_position";
 
 ////////////////// GLOBAL VARIABLES //////////////////
 bool runloop = false;
@@ -40,38 +50,69 @@ std::vector<std::shared_ptr<Sai2Model::Sai2Model>> robots;
 std::vector<std::shared_ptr<Sai2Primitives::JointTask>> joint_tasks;
 std::vector<std::shared_ptr<Sai2Primitives::PosOriTask>> posori_tasks;
 std::shared_ptr<Sai2Primitives::TwoHandTwoRobotsTask> two_hand_task;
-
+std::vector<std::shared_ptr<Sai2Primitives::JointTask>> floating_tasks;
+std::vector<VectorXd> coriolis;
+std::mutex model_mutex; 
 
 ////////////////////// FUNCTIONS //////////////////////
+/** 
+ * Custom signal handler: used here to terminate the controller.
+ * @param signal The signal (e.g. SIGINT) that was raised.
+ */
 void sighandler(int)
 {
     runloop = false;
 }
 
 ////////////////////// TWO HAND TASK //////////////////////
+/** Flag to use internal force control or not */
 int two_hand_use_internal_force_flag;
-int two_hand_use_interpolation_pos_flag;
-int two_hand_use_interpolation_ori_flag;
-int two_hand_use_velocity_saturation_flag;
-double two_hand_interpolation_pos_max_vel;
-double two_hand_interpolation_pos_max_accel;
-double two_hand_interpolation_pos_max_jerk;
-double two_hand_interpolation_ori_max_vel;
-double two_hand_interpolation_ori_max_accel;
-double two_hand_interpolation_ori_max_jerk;
-std::vector<VectorXd> sensed_force_moments;
-Eigen::Vector3d desired_obj_ori_euler; // ZYX angles, stored XYZ
 
+/** Flag to use interpolation on object position */
+int two_hand_use_interpolation_pos_flag;
+
+/** Flag to use interpolation on object orientation */
+int two_hand_use_interpolation_ori_flag;
+
+/** Flag to use velocity saturation on object pos & ori */
+int two_hand_use_velocity_saturation_flag;
+
+/** Max OTG linear velocity of object position */
+double two_hand_interpolation_pos_max_vel;
+
+/** Max OTG linear acceleration of object position */
+double two_hand_interpolation_pos_max_accel;
+
+/** Max OTG linear jerk of object position */
+double two_hand_interpolation_pos_max_jerk;
+
+/** Max OTG angular velocity of object orientation */
+double two_hand_interpolation_ori_max_vel;
+
+/** Max OTG angular acceleration of object orientation */
+double two_hand_interpolation_ori_max_accel;
+
+/** Max OTG angular jerk of object orientation */
+double two_hand_interpolation_ori_max_jerk;
+
+/** Each robot's sensed force/moments at the end effectors */
+std::vector<VectorXd> sensed_force_moments;
+
+/**
+ * Initializes the TwoHandTwoRobotsTask object with default values
+ * 
+ * @param two_hand_task     The TwoHandTwoRobotsTask object to initialize with default values
+ * @param redis             The RedisClient instance to use when setting callbacks
+ */
 void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, RedisClient& redis)
 {
     // initialize global variables
-    two_hand_use_internal_force_flag = 0;
+    two_hand_use_internal_force_flag = 1;
     for (int i = 0; i < N_ROBOTS; i++)
     {
         sensed_force_moments.push_back(VectorXd::Zero(robots[i]->dof()));
     }
 
-    desired_obj_ori_euler.setZero();
     two_hand_use_interpolation_pos_flag = 1;
     two_hand_use_interpolation_ori_flag = 1;
     two_hand_use_velocity_saturation_flag = 0;
@@ -136,7 +177,7 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
     redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
     redis.addDoubleToReadCallback(READ_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
     redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
-    redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
+    redis.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, two_hand_task->_desired_object_orientation);
 
     for (int i = 0; i < N_ROBOTS; i++)
     {
@@ -178,19 +219,16 @@ void init_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task, R
 
     redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_INTERNAL_FORCE_KEY, two_hand_use_internal_force_flag);
     redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_SEPARATION_KEY, two_hand_task->_desired_internal_separation);
-    redis.addEigenToReadCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
-    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
-    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
-    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
-
-    redis.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, TWO_HAND_USE_INTERNAL_FORCE_KEY, two_hand_use_internal_force_flag);
-    redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_SEPARATION_KEY, two_hand_task->_desired_internal_separation);
     redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_ANGLES_KEY, two_hand_task->_desired_internal_angles);
     redis.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_INTERNAL_TENSION_KEY, two_hand_task->_desired_internal_tension);
     redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_POSITION_KEY, two_hand_task->_desired_object_position);
-    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, desired_obj_ori_euler);
+    redis.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_OBJECT_ORIENTATION_KEY, two_hand_task->_desired_object_orientation);
 }
 
+/**
+ * Updates the given TwoHandTwoRobotsTask after a controller cycle.
+ * @param two_hand_task     The TwoHandTwoRobotsTask to update after a controller cycle
+ */
 void update_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task)
 {
     two_hand_task->_internal_force_control_flag = bool(two_hand_use_internal_force_flag);
@@ -218,17 +256,13 @@ void update_two_handed_task(Sai2Primitives::TwoHandTwoRobotsTask *two_hand_task)
             sensed_force_moments[0].head(3), sensed_force_moments[0].tail(3),
             sensed_force_moments[1].head(3), sensed_force_moments[1].tail(3)
         );
-
-        Matrix3d desired_rmat;
-        desired_rmat = Eigen::AngleAxisd(desired_obj_ori_euler(2), Eigen::Vector3d::UnitZ())
-                     * Eigen::AngleAxisd(desired_obj_ori_euler(1), Eigen::Vector3d::UnitY())
-                     * Eigen::AngleAxisd(desired_obj_ori_euler(0), Eigen::Vector3d::UnitX());
-
-        two_hand_task->_desired_object_orientation = desired_rmat;
     }
 }
 
-// function to update model at a slower rate
+/**
+ * Updates each task's (joint, posori, two hand) task model at a slower 200 Hz
+ * in a separate thread.
+ */
 void updateModelThread();
 
 int main()
@@ -284,7 +318,6 @@ int main()
     std::vector<VectorXd> command_torques;    
     std::vector<VectorXd> joint_torques;
     std::vector<VectorXd> posori_torques;
-    std::vector<VectorXd> coriolis;
     std::vector<VectorXd> two_hand_torques;
     std::vector<Vector3d> current_ee_pos;
     std::vector<Vector3d> current_ee_vel;
@@ -299,12 +332,18 @@ int main()
 
         auto joint_task = std::make_shared<Sai2Primitives::JointTask>(robot);
         auto posori_task = std::make_shared<Sai2Primitives::PosOriTask>(robot, link_name, pos_in_link);
+        auto floating_task = std::make_shared<Sai2Primitives::JointTask>(robot);
 
         init_joint_task(joint_task.get(), redis_client, i, READ_CALLBACK_ID, INIT_WRITE_CALLBACK_ID);
         init_posori_task(posori_task.get(), redis_client, i, READ_CALLBACK_ID, INIT_WRITE_CALLBACK_ID);
 
+        floating_task->_kp = 0;
+        floating_task->_kv = FLOATING_TASK_KV;
+        floating_task->_use_interpolation_flag = false;
+
         joint_tasks.push_back(joint_task);
         posori_tasks.push_back(posori_task);
+        floating_tasks.push_back(floating_task);
 
         command_torques.push_back(VectorXd::Zero(dof));
         joint_torques.push_back(VectorXd::Zero(dof));
@@ -320,7 +359,6 @@ int main()
     for (int i = 0; i < N_ROBOTS; i++)
     {
         redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, JOINT_TORQUES_COMMANDED_KEYS[i], command_torques[i]);
-
         redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, CURRENT_EE_POS_KEYS[i], current_ee_pos[i]);
         redis_client.addEigenToWriteCallback(CYCLE_WRITE_CALLBACK_ID, CURRENT_EE_VEL_KEYS[i], current_ee_vel[i]);
     }
@@ -344,21 +382,15 @@ int main()
     two_hand_task->setForceSensorFrames(sensor_link_name, T_link_sensor, sensor_link_name, T_link_sensor);
 
     // set goal positions for the first state in world frame
-    Vector3d robot1_desired_position_in_world = Vector3d(0.2, -0.2, 0.15);
-    Vector3d robot2_desired_position_in_world = Vector3d(0.2,  0.2, 0.15);
-
     Matrix3d robot1_desired_orientation_in_world;
     Matrix3d robot2_desired_orientation_in_world;
     robot1_desired_orientation_in_world << 1, 0, 0, 0, 0, 1, 0, -1, 0;
     robot2_desired_orientation_in_world << 1, 0, 0, 0, 0, -1, 0, 1, 0;
 
-    // set desired position and orientation for posori tasks : needs to be in robot frame
-    posori_tasks[0]->_desired_position = robot_pose_in_world[0].linear().transpose()*(robot1_desired_position_in_world - robot_pose_in_world[0].translation());
-    posori_tasks[0]->_desired_orientation = robot_pose_in_world[0].linear().transpose()*robot1_desired_orientation_in_world;
-    posori_euler_angles[0] = posori_tasks[0]->_desired_orientation.eulerAngles(2, 1, 0).reverse();
-    posori_tasks[1]->_desired_position = robot_pose_in_world[1].linear().transpose()*(robot2_desired_position_in_world - robot_pose_in_world[1].translation());
-    posori_tasks[1]->_desired_orientation = robot_pose_in_world[1].linear().transpose()*robot2_desired_orientation_in_world;
-    posori_euler_angles[1] = posori_tasks[1]->_desired_orientation.eulerAngles(2, 1, 0).reverse();
+    posori_desired_position_world[0] = Vector3d(0.2, -0.2, 0.15);
+    posori_desired_orientation_world[0] = robot1_desired_orientation_in_world;
+    posori_desired_position_world[1] = Vector3d(0.2,  0.2, 0.15);
+    posori_desired_orientation_world[1] = robot2_desired_orientation_in_world;
 
     // initialization complete
     redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
@@ -390,29 +422,18 @@ int main()
         std::string oldPrimitive = currentPrimitive;
         redis_client.executeReadCallback(READ_CALLBACK_ID);
 
-        update_two_handed_task(two_hand_task.get());
+        // we lock in main controller loop as the slower task model update 
+        // is not thread-safe
+        std::lock_guard<std::mutex> lock(model_mutex);
 
-        // read robot state from redis and update robot model
         for (int i = 0; i < N_ROBOTS; i++)
         {
             update_posori_task(posori_tasks[i].get(), i);
-
-            if (flag_simulation)
-            {
-                robots[i]->updateModel();
-                robots[i]->coriolisForce(coriolis[i]);
-            }
-            else
-            {
-                robots[i]->updateKinematics();
-                robots[i]->_M = redis_client.getEigenMatrixJSON(MASSMATRIX_KEYS[i]);
-                robots[i]->_M_inv = robots[i]->_M.inverse();
-                coriolis[i] = redis_client.getEigenMatrixJSON(CORIOLIS_KEYS[i]);
-            }
-
-            robots[i]->coriolisForce(coriolis[i]);
         }
 
+        update_two_handed_task(two_hand_task.get());
+
+        // if primitive changes, reset & reinit
         if (currentPrimitive != oldPrimitive)
         {
             if (currentPrimitive == PRIMITIVE_INDEPENDENT_TASK)
@@ -422,10 +443,7 @@ int main()
                     auto posori_task = posori_tasks[i];
                     posori_task->reInitializeTask();
                     redis_client.setEigenMatrixJSON(DESIRED_POS_KEYS[i], posori_task->_current_position);
-
-                    // ZYX euler angles, but stored as XYZ
-                    Vector3d angles = posori_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
-                    redis_client.setEigenMatrixJSON(DESIRED_ORI_KEYS[i], angles);
+                    redis_client.setEigenMatrixJSON(DESIRED_ORI_KEYS[i], posori_task->_current_orientation);
                 }
             }
             else if (currentPrimitive == PRIMITIVE_COORDINATED_TASK)
@@ -437,6 +455,14 @@ int main()
                 }
 
                 redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
+            }
+            else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+            {
+                for (int i = 0; i < N_ROBOTS; i++)
+                {
+                    auto floating_task = floating_tasks[i];
+                    floating_task->reInitializeTask();
+                }
             }
         }
 
@@ -472,7 +498,9 @@ int main()
         {
             for (int i = 0; i < N_ROBOTS; i++)
             {
-                command_torques[i].setZero(robots[i]->dof());
+                Eigen::VectorXd floating_task_torques;
+                floating_tasks[i]->computeTorques(floating_task_torques);
+                command_torques[i] = floating_task_torques + coriolis[i];
             }
         }
 
@@ -551,9 +579,28 @@ void updateModelThread()
     while (runloop)
     {
         timer.waitForNextLoop();
+
+        // updating task model is not thread-safe: we must lock so that the
+        // main controller thread does not compute torques while we update
+        // internal the task models
+        std::lock_guard<std::mutex> lock(model_mutex);
+
+        // read robot state from redis and update robot model
         for (int i = 0; i < N_ROBOTS; i++)
         {
-            robots[i]->updateModel();
+            if (flag_simulation)
+            {
+                robots[i]->updateModel();
+            }
+            else
+            {
+                robots[i]->updateKinematics();
+                robots[i]->_M = redis_client.getEigenMatrixJSON(MASSMATRIX_KEYS[i]);
+                robots[i]->_M_inv = robots[i]->_M.inverse();
+                coriolis[i] = redis_client.getEigenMatrixJSON(CORIOLIS_KEYS[i]);
+            }
+
+            robots[i]->coriolisForce(coriolis[i]);
         }
 
         if (currentPrimitive == PRIMITIVE_INDEPENDENT_TASK)
@@ -580,6 +627,16 @@ void updateModelThread()
             for (int i = 0; i < N_ROBOTS; i++)
             {
                 joint_tasks[i]->updateTaskModel(N_prec[i]);
+            }
+        }
+        else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+        {
+            for (int i = 0; i < N_ROBOTS; i++)
+            {
+                N_prec[i].setIdentity();
+                auto floating_task = floating_tasks[i];
+                const int dof = floating_task->_robot->dof();
+                floating_task->updateTaskModel(N_prec[i]);
             }
         }
     }

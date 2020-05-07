@@ -26,7 +26,6 @@ constexpr const char *CONTROL_STATE_READY = "ready";
 
 // posori task parameters
 constexpr const char *DESIRED_POS_KEY = "sai2::examples::desired_position";
-constexpr const char *DESIRED_ORI_KEY = "sai2::examples::desired_orientation";
 constexpr const char *DESIRED_VEL_KEY = "sai2::examples::desired_velocity";
 constexpr const char *KP_POS_KEY = "sai2::examples::kp_pos";
 constexpr const char *KV_POS_KEY = "sai2::examples::kv_pos";

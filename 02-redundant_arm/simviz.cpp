@@ -18,7 +18,7 @@
 
 using namespace Eigen;
 
-// redis keys
+// simulation constants
 constexpr const char *world_file = "resources/world.urdf";
 constexpr const char *robot_name = "PANDA";
 constexpr const char *camera_name = "camera";

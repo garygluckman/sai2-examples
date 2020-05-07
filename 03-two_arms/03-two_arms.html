@@ -62,7 +62,6 @@
       grid-template-columns: 1.5fr 1fr;
       gap: 10px;
       justify-content: space-around;
-      height: 80vh;
     }
 
     .container-item {
@@ -80,12 +79,10 @@
     .grid-half {
       display: flex;
       justify-content: space-between;
-      height: 100%;
-      width: 100%;
     }
 
     .grid-half .col {
-      width: 48%;
+      flex: 1;
     }
 
     .posori-grid {
@@ -135,10 +132,9 @@
               <sai2-interfaces-slider key="sai2::examples::panda1::desired_position" display='["X", "Y", "Z"]'
                 min="[-0.5,-0.5,0.1]" max="[0.5,0.5,0.8]" step="0.01">
               </sai2-interfaces-slider>
-              <h2>Desired Orientation <br>(XYZ Fixed Angles)</h2>
-              <sai2-interfaces-slider key="sai2::examples::panda1::desired_orientation" display='["X (γ)", "Y (β)", "Z (α)"]'
-                min="[-3.14,-3.14,0]" max="[3.14,3.14,3.14]" step="0.01">
-              </sai2-interfaces-slider>
+              <h2>Desired Relative Orientation <br>(XYZ Fixed Angles)</h2>
+              <sai2-interfaces-orientation key="sai2::examples::panda1::desired_orientation" refreshRate="1">
+              </sai2-interfaces-orientation>
             </div>
 
             <div class="gains center">
@@ -209,10 +205,9 @@
               <sai2-interfaces-slider key="sai2::examples::panda2::desired_position" display='["X", "Y", "Z"]'
                 min="[-0.5,-0.5,0.1]" max="[0.5,0.5,0.8]" step="0.01">
               </sai2-interfaces-slider>
-              <h2>Desired Orientation <br>(XYZ Fixed Angles)</h2>
-              <sai2-interfaces-slider key="sai2::examples::panda2::desired_orientation" display='["X (γ)", "Y (β)", "Z (α)"]'
-                min="[-3.14,-3.14,0]" max="[3.14,3.14,3.14]" step="0.01">
-              </sai2-interfaces-slider>
+              <h2>Desired Relative Orientation <br>(XYZ Fixed Angles)</h2>
+              <sai2-interfaces-orientation key="sai2::examples::panda2::desired_orientation" refreshRate="1">
+              </sai2-interfaces-orientation>
             </div>
 
             <div class="gains center">
@@ -278,72 +273,64 @@
         </sai2-interfaces-select-option>
 
         <sai2-interfaces-select-option name="Coordinated" key="primitive_coordinated_task" class="module">
+          <div class="grid-half">
+            <div class="col">
+              <h2>Object Position</h2>
+              <sai2-interfaces-slider key="sai2::examples::two_hand_desired_object_position"
+                display="Object Position" min='["-0.6","-0.5","0"]' max='["0.6","0.6","1"]' step="0.01">
+              </sai2-interfaces-slider>
+              <h2>Relative Object Orientation</h2>
+              <sai2-interfaces-orientation key="sai2::examples::two_hand_desired_object_orientation"
+                refreshRate="1">
+              </sai2-interfaces-orientation>
+            </div>
+            <div class="col">
+              <h2>Gains</h2>
+              <sai2-interfaces-slider key="sai2::examples::two_hand_kp_pos"
+                display="Object Kp Pos" min="0" max="200" step="1">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::two_hand_kv_pos"
+                display="Object Kv Pos" min="0" max="100" step="0.1">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::two_hand_kp_ori"
+                display="Object Kp Ori" min="0" max="200" step="1">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-slider key="sai2::examples::two_hand_kv_ori"
+                display="Object Kv Ori" min="0" max="100" step="1">
+              </sai2-interfaces-slider>
+              <sai2-interfaces-accordion key="sai2::examples::two_hand_use_interpolation_pos"
+                displayName="Use Position Interpolation">
+                <sai2-interfaces-slider key="sai2::examples::two_hand_pos_interpolation_max_vel"
+                  display="OTG Max Vel" min="0.01" max="1" step="0.01">
+                </sai2-interfaces-slider>
+                <sai2-interfaces-slider key="sai2::examples::two_hand_pos_interpolation_max_accel"
+                  display="OTG Max Accel" min="0.01" max="5" step="0.01">
+                </sai2-interfaces-slider>
+                <sai2-interfaces-slider key="sai2::examples::two_hand_pos_interpolation_max_jerk"
+                  display="OTG Max Jerk" min="0.01" max="15" step="0.01">
+                </sai2-interfaces-slider>
+              </sai2-interfaces-accordion>
+              <sai2-interfaces-accordion key="sai2::examples::two_hand_use_interpolation_ori"
+                displayName="Use Orientation Interpolation">
+                <sai2-interfaces-slider key="sai2::examples::two_hand_ori_interpolation_max_vel"
+                  display="OTG Max Vel" min="0.01" max="3.14" step="0.01">
+                </sai2-interfaces-slider>
+                <sai2-interfaces-slider key="sai2::examples::two_hand_ori_interpolation_max_accel"
+                  display="OTG Max Accel" min="0.01" max="6.28" step="0.01">
+                </sai2-interfaces-slider>
+                <sai2-interfaces-slider key="sai2::examples::two_hand_ori_interpolation_max_jerk"
+                  display="OTG Max Jerk" min="0.01" max="12.56" step="0.01">
+                </sai2-interfaces-slider>
+              </sai2-interfaces-accordion>
+            </div>
+          </div>
 
           <sai2-interfaces-toggle-group name="Use Internal Force" key="sai2::examples::use_internal_force">
-            <sai2-interfaces-toggle-group-enabled class="grid-half">
-              <div class="col">
-                <h2>Internal Force Control</h2>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_desired_internal_tension"
-                  display="Internal Tension" min="-100" max="100" step="1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_desired_object_position"
-                  display="Object Position" min="0" max="1" step="0.01">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_desired_object_orientation"
-                  display="Object Ori" min="0" max="6.28" step="0.01">
-                </sai2-interfaces-slider>
-              </div>
-              <div class="col">
-                <h2>Gains</h2>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_kp_force"
-                  display="Kp Force" min="0" max="20" step="1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_kv_force"
-                  display="Kv Force" min="0" max="50" step="1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_kp_moment"
-                  display="Kp Moment" min="0" max="20" step="1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_kv_moment"
-                  display="Kv Moment" min="0" max="50" step="1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_kp_pos"
-                  display="Object Kp Pos" min="0" max="200" step="1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_kv_pos"
-                  display="Object Kv Pos" min="0" max="100" step="0.1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_kp_ori"
-                  display="Object Kp Ori" min="0" max="200" step="1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-slider key="sai2::examples::two_hand_kv_ori"
-                  display="Object Kv Ori" min="0" max="100" step="1">
-                </sai2-interfaces-slider>
-                <sai2-interfaces-accordion key="sai2::examples::two_hand_use_interpolation_pos"
-                  displayName="Use Position Interpolation">
-                  <sai2-interfaces-slider key="sai2::examples::two_hand_pos_interpolation_max_vel"
-                    display="OTG Max Vel" min="0.01" max="1" step="0.01">
-                  </sai2-interfaces-slider>
-                  <sai2-interfaces-slider key="sai2::examples::two_hand_pos_interpolation_max_accel"
-                    display="OTG Max Accel" min="0.01" max="5" step="0.01">
-                  </sai2-interfaces-slider>
-                  <sai2-interfaces-slider key="sai2::examples::two_hand_pos_interpolation_max_jerk"
-                    display="OTG Max Jerk" min="0.01" max="15" step="0.01">
-                  </sai2-interfaces-slider>
-                </sai2-interfaces-accordion>
-                <sai2-interfaces-accordion key="sai2::examples::two_hand_use_interpolation_ori"
-                  displayName="Use Orientation Interpolation">
-                  <sai2-interfaces-slider key="sai2::examples::two_hand_ori_interpolation_max_vel"
-                    display="OTG Max Vel" min="0.01" max="3.14" step="0.01">
-                  </sai2-interfaces-slider>
-                  <sai2-interfaces-slider key="sai2::examples::two_hand_ori_interpolation_max_accel"
-                    display="OTG Max Accel" min="0.01" max="6.28" step="0.01">
-                  </sai2-interfaces-slider>
-                  <sai2-interfaces-slider key="sai2::examples::two_hand_ori_interpolation_max_jerk"
-                    display="OTG Max Jerk" min="0.01" max="12.56" step="0.01">
-                  </sai2-interfaces-slider>
-                </sai2-interfaces-accordion>                          
-              </div>
+            <sai2-interfaces-toggle-group-enabled>
+              <h2>Internal Force Control</h2>
+              <sai2-interfaces-slider key="sai2::examples::two_hand_desired_internal_tension"
+                display="Internal Tension" min="-100" max="100" step="1">
+              </sai2-interfaces-slider>
             </sai2-interfaces-toggle-group-enabled>
 
             <sai2-interfaces-toggle-group-disabled class="grid-half">
@@ -373,15 +360,6 @@
               </div>
             </sai2-interfaces-toggle-group-disabled>
           </sai2-interfaces-toggle-group>
-          <sai2-interfaces-accordion key="sai2::examples::two_hand_use_velocity_saturation"
-            displayName="Use Velocity Saturation">
-            <sai2-interfaces-slider key="sai2::examples::two_hand_linear_velocity_sat"
-              display="Max Linear Velocity" min="0.01" max="5" step="0.01">
-            </sai2-interfaces-slider>
-            <sai2-interfaces-slider key="sai2::examples::two_hand_angular_velocity_sat"
-              display="Max Angular Velocity" min="0.01" max="5" step="0.01">
-            </sai2-interfaces-slider>
-          </sai2-interfaces-accordion>
         </sai2-interfaces-select-option>
 
         <sai2-interfaces-select-option name="Floating" key="primitive_floating_task" class="grid-half module">
