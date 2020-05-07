@@ -16,12 +16,21 @@
 using namespace Eigen;
 
 ////////////////////// CONSTANTS //////////////////////
+
+/** Redis write callback ID: used for setting keys for the first time  */
 constexpr int INIT_WRITE_CALLBACK_ID = 0;
+
+/** Redis read callback ID: used to grab updated values on each controller cycle */
 constexpr int READ_CALLBACK_ID = 0;
+
+/** Flag to determine if we are in simulation or grabbing values from the real robot */
 constexpr bool flag_simulation = true;
 // constexpr const bool flag_simulation = false;
 
-// redis keys
+/** Damping when dragging the robot in the floating task */
+constexpr double FLOATING_TASK_KV = 2.5;
+
+// Joint redis keys: select the correct key if we are in simulation or not
 constexpr const char *JOINT_ANGLES_KEY = (flag_simulation) ? SIM_JOINT_ANGLES_KEY : HW_JOINT_ANGLES_KEY;
 constexpr const char *JOINT_VELOCITIES_KEY = (flag_simulation) ? SIM_JOINT_VELOCITIES_KEY : HW_JOINT_VELOCITIES_KEY;
 constexpr const char *JOINT_TORQUES_COMMANDED_KEY = (flag_simulation) ? SIM_JOINT_TORQUES_COMMANDED_KEY : HW_JOINT_TORQUES_COMMANDED_KEY;
@@ -32,6 +41,10 @@ std::string currentPrimitive = PRIMITIVE_JOINT_TASK;
 RedisClient redis_client;
 
 ////////////////////// FUNCTIONS //////////////////////
+/** 
+ * Custom signal handler: used here to terminate the controller.
+ * @param signal The signal (e.g. SIGINT) that was raised.
+ */
 void sighandler(int)
 {
     runloop = false;
@@ -39,16 +52,38 @@ void sighandler(int)
 
 
 ////////////////// JOINT TASK VARIABLES //////////////////
+/** Kp values for each joint in nonisotropic mode */
 Eigen::VectorXd joint_kp_nonisotropic;
+
+/** Kv values for each joint in nonisotropic mode */
 Eigen::VectorXd joint_kv_nonisotropic;
+
+/** Flag to use OTG interpolation or not */
 int joint_use_interpolation;
+
+/** JointTask OTG max velocity */
 double joint_interpolation_max_velocity;
+
+/** JointTask OTG max acceleration */
 double joint_interpolation_max_acceleration;
+
+/** JointTask OTG max jerk */
 double joint_interpolation_max_jerk;
+
+/** Flag to use velocity saturation or not */
 int joint_use_velocity_saturation;
+
+/** Flag to use isotropic gains or not */
 int joint_use_isotropic_gains;
+
+/** Current dynamic decoupling mode (full, inertia_saturation, or none) */
 std::string joint_dynamic_decoupling_mode;
 
+/**
+ * Initializes the JointTask with default gains and settings and sets up the Redis callbacks.
+ * @param joint_task    An uninitialized JointTask instance
+ * @param redis_client  A RedisClient instance to set up callbacks
+ */
 void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_client)
 {
     int dof = joint_task->_robot->dof();
@@ -108,16 +143,21 @@ void init_joint_task(Sai2Primitives::JointTask *joint_task, RedisClient& redis_c
     redis_client.addDoubleToWriteCallback(INIT_WRITE_CALLBACK_ID, JOINT_INTERPOLATION_MAX_JERK, joint_interpolation_max_jerk);
 }
 
+/**
+ * Updates the JointTask after a controller cycle.
+ * @param joint_task    The JointTask instance to update after a controller cycle
+ */
 void update_joint_task(Sai2Primitives::JointTask *joint_task)
 {
     auto dof = joint_task->_robot->dof();
 
+    // re-initialize if new cycle enabled interpolation - otherwise interpolation has stale position internally
     if (joint_use_interpolation && !joint_task->_use_interpolation_flag)
         joint_task->reInitializeTask();
 
     if (!joint_task->_use_isotropic_gains && joint_use_isotropic_gains)
     {
-        // going from nonisotropic to isotropic
+        // going from nonisotropic to isotropic: take the median Kp & Kv
         VectorXd kp_median_temp(joint_kp_nonisotropic);
         VectorXd kv_median_temp(joint_kv_nonisotropic);
 
@@ -131,7 +171,7 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
     }
     else if (joint_task->_use_isotropic_gains && !joint_use_isotropic_gains)
     {
-        // going from isotropic to nonisotropic
+        // going from isotropic to nonisotropic: set each joint to same value
         joint_kp_nonisotropic = joint_task->_kp * VectorXd::Ones(dof);
         joint_kv_nonisotropic = joint_task->_kv * VectorXd::Ones(dof);
         joint_task->setNonIsotropicGains(joint_kp_nonisotropic, joint_kv_nonisotropic, VectorXd::Zero(dof));
@@ -156,22 +196,53 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
 }
 
 ////////////////// POSORI TASK VARIABLES //////////////////
+/** Flag to use PosOriTask with OTG interpolation or not */
 int posori_use_interpolation;
+
+/** PosOriTask OTG interpolation max linear velocity */
 double posori_interpolation_max_linear_velocity;
+
+/** PosOriTask OTG interpolation max linear acceleration */
 double posori_interpolation_max_linear_acceleration;
+
+/** PosOriTask OTG interpolation max linear jerk */
 double posori_interpolation_max_linear_jerk;
+
+/** PosOriTask OTG interpolation max angular velocity */
 double posori_interpolation_max_angular_velocity;
+
+/** PosOriTask OTG interpolation max angular acceleration */
 double posori_interpolation_max_angular_acceleration;
+
+/** PosOriTask OTG interpolation max angular jerk */
 double posori_interpolation_max_angular_jerk;
+
+/** Flag to use PosOri velocity saturation or not */
 int posori_use_velocity_saturation;
+
+/** Flag to use PosOri isotropic gains or not*/
 int posori_use_isotropic_gains;
-Eigen::Vector3d posori_euler_angles;
+
+/** Tuple of (linear velocity, angular velocity) for velocity saturation */
 Eigen::Vector2d posori_velocity_saturation;
+
+/** Kp (x, y, z) when using nonisotropic gains */
 Eigen::Vector3d posori_kp_nonisotropic;
+
+/** Kv (x, y, z) when using nonisotropic gains */
 Eigen::Vector3d posori_kv_nonisotropic;
+
+/** Ki (x, y, z) when using nonisotropic gains */
 Eigen::Vector3d posori_ki_nonisotropic;
+
+/** Current dynamic decoupling mode: (full, partial, inertia_saturation, none)*/
 std::string posori_dynamic_decoupling_mode;
 
+/**
+ * Initializes a PosOriTask object with default gains/settings and sets up Redis callbacks.
+ * @param posori_task   The PosOriTask to initialize
+ * @param redis_client  The RedisClient to use when setting up callbacks
+ */
 void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redis_client)
 {
     Matrix3d initial_orientation;
@@ -200,9 +271,6 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     posori_interpolation_max_angular_jerk = 3 * M_PI;
     posori_velocity_saturation(0) = posori_task->_linear_saturation_velocity;
     posori_velocity_saturation(1) = posori_task->_angular_saturation_velocity;
-
-    // we are doing ZYX, but we store XYZ
-    posori_euler_angles = initial_orientation.eulerAngles(2, 1, 0).reverse();
 
     // initialize posori_task object
     posori_task->_use_interpolation_flag = bool(posori_use_interpolation);
@@ -252,7 +320,7 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     redis_client.addIntToReadCallback(READ_CALLBACK_ID, USE_ISOTROPIC_POS_GAINS_KEY, posori_use_isotropic_gains);
     redis_client.addStringToReadCallback(READ_CALLBACK_ID, DYN_DEC_POSORI_KEY, posori_dynamic_decoupling_mode);
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position); 
-    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_ORI_KEY, posori_euler_angles);
+    redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_ORI_KEY, posori_task->_desired_orientation);
     redis_client.addEigenToReadCallback(READ_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 
     // update redis for initial conditions and any controller-induced changes
@@ -277,10 +345,14 @@ void init_posori_task(Sai2Primitives::PosOriTask *posori_task, RedisClient& redi
     redis_client.addIntToWriteCallback(INIT_WRITE_CALLBACK_ID, USE_ISOTROPIC_POS_GAINS_KEY, posori_use_isotropic_gains);
     redis_client.addStringToWriteCallback(INIT_WRITE_CALLBACK_ID, DYN_DEC_POSORI_KEY, posori_dynamic_decoupling_mode);
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_POS_KEY, posori_task->_desired_position); 
-    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_ORI_KEY, posori_euler_angles);
+    redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_ORI_KEY, posori_task->_desired_orientation);
     redis_client.addEigenToWriteCallback(INIT_WRITE_CALLBACK_ID, DESIRED_VEL_KEY, posori_task->_desired_velocity);
 }
 
+/**
+ * Updates a PosOriTask instance after a controller cycle.
+ * @param posori_task   The PosOriTask instance to update after a controller cycle
+ */
 void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
 {
     auto dof = posori_task->_robot->dof();
@@ -290,7 +362,7 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
 
     if (posori_task->_use_isotropic_gains_position && !posori_use_isotropic_gains)
     {
-        // going from isotropic to nonisotropic
+        // going from isotropic to nonisotropic: set all Kp/Kv/Ki to same value
         posori_kp_nonisotropic = posori_task->_kp_pos * Vector3d::Ones();
         posori_kv_nonisotropic = posori_task->_kv_pos * Vector3d::Ones();
         posori_ki_nonisotropic = posori_task->_ki_pos * Vector3d::Ones();
@@ -307,7 +379,7 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
     }
     else if (!posori_task->_use_isotropic_gains_position && posori_use_isotropic_gains)
     {
-        // going from nonisotropic to isotropic
+        // going from nonisotropic to isotropic: set Kp/Kv to median
         Vector3d kp_median_temp(posori_kp_nonisotropic);
         Vector3d kv_median_temp(posori_kv_nonisotropic);
 
@@ -332,12 +404,6 @@ void update_posori_task(Sai2Primitives::PosOriTask *posori_task)
     posori_task->_use_isotropic_gains_position = bool(posori_use_isotropic_gains);
     posori_task->_linear_saturation_velocity = posori_velocity_saturation(0);
     posori_task->_angular_saturation_velocity = posori_velocity_saturation(1);
-
-    Matrix3d desired_rmat;
-    desired_rmat = Eigen::AngleAxisd(posori_euler_angles(2), Eigen::Vector3d::UnitZ())
-                * Eigen::AngleAxisd(posori_euler_angles(1), Eigen::Vector3d::UnitY())
-                * Eigen::AngleAxisd(posori_euler_angles(0), Eigen::Vector3d::UnitX());
-    posori_task->_desired_orientation = desired_rmat;
 
     if (posori_dynamic_decoupling_mode == "full")
         posori_task->setDynamicDecouplingFull();
@@ -394,6 +460,11 @@ int main(int argc, char **argv)
 
     Sai2Primitives::JointTask *joint_task = new Sai2Primitives::JointTask(robot);
     init_joint_task(joint_task, redis_client);
+
+    Sai2Primitives::JointTask *floating_task = new Sai2Primitives::JointTask(robot);
+    floating_task->_kp = 0;
+    floating_task->_kv = FLOATING_TASK_KV;
+    floating_task->_use_interpolation_flag = false;
 
     // initialization complete
     redis_client.executeWriteCallback(INIT_WRITE_CALLBACK_ID);
@@ -455,10 +526,12 @@ int main(int argc, char **argv)
             {
                 posori_task->reInitializeTask();
                 redis_client.setEigenMatrixJSON(DESIRED_POS_KEY, posori_task->_current_position);
-
-                // ZYX euler angles, but stored as XYZ
-                Vector3d angles = posori_task->_current_orientation.eulerAngles(2, 1, 0).reverse();
-                redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, angles);
+                redis_client.setEigenMatrixJSON(DESIRED_ORI_KEY, posori_task->_current_orientation);
+            }
+            else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+            {
+                floating_task->_current_position = robot->_q;
+                floating_task->reInitializeTask();
             }
         }
 
@@ -491,7 +564,10 @@ int main(int argc, char **argv)
         }
         else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
         {
-            command_torques.setZero(dof);
+            Eigen::VectorXd floating_task_torques;
+            floating_task->updateTaskModel(N_prec);
+            floating_task->computeTorques(floating_task_torques);
+            command_torques = floating_task_torques + coriolis;
         }
     
         // -------------------------------------------
@@ -513,7 +589,7 @@ int main(int argc, char **argv)
             std::cout << "current primitive: " << currentPrimitive << std::endl;
             if (currentPrimitive == PRIMITIVE_JOINT_TASK)
             {
-                std::cout << time << std::endl;
+                std::cout << curr_time << std::endl;
                 std::cout << "desired position : " << joint_task->_desired_position.transpose() << std::endl;
                 std::cout << "current position : " << joint_task->_current_position.transpose() << std::endl;
                 std::cout << "position error : " << (joint_task->_desired_position - joint_task->_current_position).norm() << std::endl;
@@ -521,11 +597,18 @@ int main(int argc, char **argv)
             }
             else if (currentPrimitive == PRIMITIVE_POSORI_TASK || currentPrimitive == PRIMITIVE_TRAJECTORY_TASK)
             {
-                std::cout << time << std::endl;
+                std::cout << curr_time << std::endl;
                 std::cout << "desired position : " << posori_task->_desired_position.transpose() << std::endl;
                 std::cout << "current position : " << posori_task->_current_position.transpose() << std::endl;
                 std::cout << "position error : " << (posori_task->_desired_position - posori_task->_current_position).norm() << std::endl;
                 std::cout << std::endl;
+            }
+            else if (currentPrimitive == PRIMITIVE_FLOATING_TASK)
+            {
+                cout << curr_time << endl;
+                cout << "current velocity : " << floating_task->_current_velocity.transpose() << endl;
+                cout << "current velocity norm: " << floating_task->_current_velocity.norm() << endl;
+                cout << endl;
             }
         }
 
@@ -545,11 +628,9 @@ int main(int argc, char **argv)
     std::cout << "Control Loop updates   : " << timer.elapsedCycles() << std::endl;
     std::cout << "Control Loop frequency : " << timer.elapsedCycles()/end_time << "Hz" << std::endl;
 
-    if (robot)
-        delete robot;
-    if (joint_task)
-        delete joint_task;
-    if (posori_task)
-        delete posori_task;
+    delete robot;
+    delete joint_task;
+    delete posori_task;
+    delete floating_task;
     return 0;
 }

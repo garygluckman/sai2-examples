@@ -14,13 +14,13 @@ function ctrl_c() {
     kill -2 $SIMVIZ_PID  
 }
 
-sleep 2 
+sleep 4 
 
 # launch controller
 ./controller03 &
 CONTROLLER_PID=$!
 
-sleep 1
+sleep 2
 
 # launch interfaces server
 python3 interface/server.py 03-two_arms.html &
