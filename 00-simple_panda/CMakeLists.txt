@@ -7,8 +7,9 @@ ADD_EXECUTABLE (simviz00 simviz.cpp)
 TARGET_LINK_LIBRARIES (controller00 ${SAI2-EXAMPLES_COMMON_LIBRARIES})
 TARGET_LINK_LIBRARIES (simviz00 ${SAI2-EXAMPLES_COMMON_LIBRARIES})
 
-# copy example interface to output
+# copy example interface to output as well as any additional images
 FILE(COPY 00-simple_panda.html DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+FILE(COPY kuka_iiwa.jpg DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # export resources such as model files.
 # NOTE: this requires an install build
