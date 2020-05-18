@@ -174,6 +174,7 @@ void update_joint_task(Sai2Primitives::JointTask *joint_task)
         redis_client.setEigenMatrixJSON(KV_NON_ISOTROPIC_JOINT_KEY, joint_kv_nonisotropic);
     }
 
+    joint_task->setNonIsotropicGains(joint_kp_nonisotropic, joint_kv_nonisotropic, VectorXd::Zero(dof));
     joint_task->_use_interpolation_flag = bool(joint_use_interpolation);
     joint_task->_use_isotropic_gains = bool(joint_use_isotropic_gains);
     joint_task->_use_velocity_saturation_flag = bool(joint_use_velocity_saturation);
