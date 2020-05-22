@@ -22,14 +22,18 @@ sai2-examples/bin/01-non_redundant_arm$ ls
 
 To fully start this example, run the following commands in separate terminal windows:
 ```
-python3 interface/server.py 01-non_redundant_arm.html
 ./simviz01
 ./controller01
+python3 interface/server.py 01-non_redundant_arm.html
 ```
+
 Or you can use the launch script provided:
 ```
 ./launch.sh
 ```
+
+You can close out of the `./launch.sh` script by sending in CTRL+C to the terminal
+or sending ESC to the simviz window.
 
 After that's all done, navigate to `localhost:8000` to interact with the example.
 
